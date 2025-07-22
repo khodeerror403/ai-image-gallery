@@ -1,5 +1,5 @@
 // modal.js - Handles image/video modal display and interactions
-// v2.2 - Two-column layout with fixed left panel
+// v2.3 - Complete version with larger preview, fixed video playback and loop controls
 
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
@@ -20,6 +20,7 @@ export function openImageModal(item, autoplay = false) {
     const modalPreviewImg = document.getElementById('modalPreviewImg');
     const modalPreviewVideo = document.getElementById('modalPreviewVideo');
     const modalMediaTitle = document.getElementById('modalMediaTitle');
+    const videoControls = document.getElementById('modalVideoControls');
     const downloadWorkflow = document.getElementById('downloadWorkflow');
     
     const isVideo = item.mediaType === 'video';
@@ -29,14 +30,29 @@ export function openImageModal(item, autoplay = false) {
         // Show video, hide image
         modalPreviewImg.style.display = 'none';
         modalPreviewVideo.style.display = 'block';
-        modalPreviewVideo.src = item.imageData;
+        videoControls.style.display = 'flex';
         
+        // Set video source and attributes
+        modalPreviewVideo.src = item.imageData;
+        modalPreviewVideo.loop = true; // Enable loop by default
+        modalPreviewVideo.muted = false; // Unmuted for user interaction
+        
+        // Try to play if autoplay requested
         if (autoplay) {
-            modalPreviewVideo.play().catch(e => console.log('Autoplay failed:', e));
+            // Add a small delay to ensure video is loaded
+            setTimeout(() => {
+                modalPreviewVideo.play().catch(e => {
+                    console.log('Autoplay blocked by browser, user interaction required:', e);
+                });
+            }, 100);
         }
+        
+        // Setup video control handlers
+        setupVideoControls(modalPreviewVideo);
     } else {
         // Show image, hide video
         modalPreviewVideo.style.display = 'none';
+        videoControls.style.display = 'none';
         modalPreviewImg.style.display = 'block';
         modalPreviewImg.src = item.imageData;
     }
@@ -68,6 +84,54 @@ export function openImageModal(item, autoplay = false) {
     modal.style.display = 'block';
 }
 
+// Setup video control functionality
+function setupVideoControls(videoElement) {
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const loopToggleBtn = document.getElementById('loopToggleBtn');
+    const loopIndicator = document.getElementById('loopIndicator');
+    
+    // Update play/pause button text
+    function updatePlayPauseButton() {
+        playPauseBtn.textContent = videoElement.paused ? '▶️ Play' : '⏸️ Pause';
+    }
+    
+    // Update loop indicator
+    function updateLoopIndicator() {
+        loopIndicator.textContent = videoElement.loop ? '🔄 Loop: ON' : '🔄 Loop: OFF';
+        loopToggleBtn.textContent = videoElement.loop ? '🔄 Disable Loop' : '🔄 Enable Loop';
+    }
+    
+    // Play/Pause functionality
+    playPauseBtn.onclick = () => {
+        if (videoElement.paused) {
+            videoElement.play().catch(e => {
+                console.error('Error playing video:', e);
+                showNotification('Unable to play video. Browser may be blocking autoplay.', 'error');
+            });
+        } else {
+            videoElement.pause();
+        }
+    };
+    
+    // Loop toggle functionality
+    loopToggleBtn.onclick = () => {
+        videoElement.loop = !videoElement.loop;
+        updateLoopIndicator();
+    };
+    
+    // Update buttons when video state changes
+    videoElement.addEventListener('play', updatePlayPauseButton);
+    videoElement.addEventListener('pause', updatePlayPauseButton);
+    videoElement.addEventListener('loadstart', () => {
+        updatePlayPauseButton();
+        updateLoopIndicator();
+    });
+    
+    // Initialize button states
+    updatePlayPauseButton();
+    updateLoopIndicator();
+}
+
 // Ensure the modal has the correct two-column structure
 function ensureModalStructure() {
     const modal = document.getElementById('imageModal');
@@ -75,11 +139,11 @@ function ensureModalStructure() {
     
     // Check if we need to update the structure
     if (!modalContent.querySelector('.modal-left-panel')) {
-        // Create new two-column structure
+        // Create new two-column structure with larger preview
         modalContent.innerHTML = `
             <span class="close" id="closeModal">&times;</span>
             
-            <!-- Left Panel - Fixed -->
+            <!-- Left Panel - Fixed with LARGER preview -->
             <div class="modal-left-panel">
                 <div class="modal-media-preview">
                     <img id="modalPreviewImg" src="" alt="" style="display: none;">
@@ -88,10 +152,18 @@ function ensureModalStructure() {
                         Your browser does not support the video tag.
                     </video>
                 </div>
+                
+                <!-- Video Controls -->
+                <div class="modal-video-controls" id="modalVideoControls" style="display: none;">
+                    <button class="video-control-btn" id="playPauseBtn">▶️ Play</button>
+                    <button class="video-control-btn" id="loopToggleBtn">🔄 Enable Loop</button>
+                    <span class="loop-indicator" id="loopIndicator">🔄 Loop: OFF</span>
+                </div>
+                
                 <div class="modal-media-title" id="modalMediaTitle">Untitled</div>
             </div>
             
-            <!-- Right Panel - Scrollable -->
+            <!-- Right Panel - Scrollable with COMPRESSED metadata -->
             <div class="modal-right-panel">
                 <div class="metadata-form">
                     <div class="form-group">
@@ -115,37 +187,37 @@ function ensureModalStructure() {
                         <textarea id="imageNotes" placeholder="Additional notes about this media"></textarea>
                     </div>
                     
-                    <!-- Metadata display -->
+                    <!-- Metadata display - COMPRESSED -->
                     <div class="form-group">
                         <label>📋 Media Metadata:</label>
                         <div class="metadata-display-section">
                             
                             <!-- Prompt Section -->
                             <div id="promptSection" style="display: none;">
-                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                <h4 style="color: #2c3e50; margin: 0 0 6px 0; font-size: 13px; font-family: Arial, sans-serif;">
                                     🎯 Prompt Data:
                                 </h4>
-                                <div id="promptDisplay" style="background: #e8f4f8; padding: 8px; border-radius: 4px; margin-bottom: 15px; border-left: 3px solid #3498db;">
+                                <div id="promptDisplay" style="background: #e8f4f8; padding: 6px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #3498db;">
                                     <em>No prompt data found</em>
                                 </div>
                             </div>
                             
                             <!-- Workflow Section -->
                             <div id="workflowSection" style="display: none;">
-                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                <h4 style="color: #2c3e50; margin: 0 0 6px 0; font-size: 13px; font-family: Arial, sans-serif;">
                                     🔧 Workflow Data:
                                 </h4>
-                                <div id="workflowDisplay" style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 15px; border-left: 3px solid #ffc107;">
+                                <div id="workflowDisplay" style="background: #fff3cd; padding: 6px; border-radius: 4px; margin-bottom: 10px; border-left: 3px solid #ffc107;">
                                     <em>No workflow data found</em>
                                 </div>
                             </div>
                             
                             <!-- Other Metadata Section -->
                             <div id="otherMetadataSection" style="display: none;">
-                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                <h4 style="color: #2c3e50; margin: 0 0 6px 0; font-size: 13px; font-family: Arial, sans-serif;">
                                     📄 Other Metadata:
                                 </h4>
-                                <div id="otherMetadataDisplay" style="background: #f8f9fa; padding: 8px; border-radius: 4px; border-left: 3px solid #6c757d;">
+                                <div id="otherMetadataDisplay" style="background: #f8f9fa; padding: 6px; border-radius: 4px; border-left: 3px solid #6c757d;">
                                     <em>No other metadata found</em>
                                 </div>
                             </div>
@@ -221,6 +293,7 @@ function openFullSizeMedia(mediaSrc, mediaType) {
         mediaElement = document.createElement('video');
         mediaElement.controls = true;
         mediaElement.autoplay = true;
+        mediaElement.loop = true; // Enable loop for full-size video too
         mediaElement.src = mediaSrc;
     } else {
         mediaElement = document.createElement('img');
