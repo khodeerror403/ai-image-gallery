@@ -299,8 +299,8 @@ body {
 .modal-media-preview video {
     width: 100%;
     height: auto;
-    max-height: 450px; /* Keep videos at original size */
-    max-width: 500px; /* Keep videos at original width */
+    max-height: 700px; /* Increased from 450px to match second-to-last image size */
+    max-width: 750px; /* Increased from 500px to match second-to-last image size */
     object-fit: contain;
     border-radius: 8px;
 }
@@ -603,8 +603,8 @@ body {
     }
     
     .modal-media-preview video {
-        max-height: 250px; /* Scale down videos on mobile too */
-        max-width: 350px;
+        max-height: 600px; /* Scale down videos on mobile but keep them larger */
+        max-width: 650px;
     }
     
     .modal-right-panel {
@@ -618,8 +618,8 @@ body {
     }
     
     .modal-media-preview video {
-        max-height: 200px;
-        max-width: 300px;
+        max-height: 500px;
+        max-width: 550px;
     }
 }
 
