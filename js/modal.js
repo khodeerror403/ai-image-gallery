@@ -287,6 +287,19 @@ function openFullSizeMedia(mediaSrc, mediaType) {
         };
     }
     
+    // Create X close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'fullsize-close-btn';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        overlay.style.display = 'none';
+        const video = overlay.querySelector('video');
+        if (video) {
+            video.pause();
+        }
+    };
+    
     // Create media element
     let mediaElement;
     if (mediaType === 'video') {
@@ -305,8 +318,9 @@ function openFullSizeMedia(mediaSrc, mediaType) {
     // Prevent media click from closing overlay
     mediaElement.onclick = (e) => e.stopPropagation();
     
-    // Clear previous content and add new media
+    // Clear previous content and add new media and close button
     overlay.innerHTML = '';
+    overlay.appendChild(closeBtn);
     overlay.appendChild(mediaElement);
     
     // Show overlay
@@ -450,14 +464,7 @@ export function closeModal() {
     }
     
     // Close full-size overlay if open
-    const fullsizeOverlay = document.getElementById('fullsizeOverlay');
-    if (fullsizeOverlay) {
-        fullsizeOverlay.style.display = 'none';
-        const video = fullsizeOverlay.querySelector('video');
-        if (video) {
-            video.pause();
-        }
-    }
+    closeFullSizeOverlay();
     
     currentImageId = null;
     currentImageData = null;
@@ -497,9 +504,4 @@ export function setupModalEventListeners() {
 // Get current image data (for other modules)
 export function getCurrentImageData() {
     return currentImageData;
-}
-
-// Get current image ID (for other modules)
-export function getCurrentImageId() {
-    return currentImageId;
 }

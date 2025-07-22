@@ -211,7 +211,7 @@ body {
     margin-bottom: 0;
 }
 
-/* UPDATED MODAL STYLES - Two-Column Layout with Larger Preview */
+/* UPDATED MODAL STYLES - Larger Images, Better Responsive Design */
 .modal {
     display: none;
     position: fixed;
@@ -227,7 +227,7 @@ body {
     background: white;
     margin: 20px auto;
     border-radius: 10px;
-    max-width: 1400px; /* Increased from 1200px */
+    max-width: 1600px; /* Increased from 1400px */
     max-height: 90vh;
     width: 95%;
     display: flex;
@@ -260,26 +260,26 @@ body {
     color: #333;
 }
 
-/* Left panel - Fixed, contains media preview (ENLARGED) */
+/* Left panel - Fixed, contains media preview (MUCH LARGER FOR IMAGES) */
 .modal-left-panel {
-    flex: 0 0 550px; /* Increased from 400px */
+    flex: 0 0 700px; /* Increased from 550px */
     background: #f8f9fa;
     padding: 25px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* Better vertical centering */
+    justify-content: center;
     border-right: 1px solid #dee2e6;
 }
 
-/* Media preview in left panel (MUCH LARGER) */
+/* Media preview in left panel (LARGER IMAGES, SAME VIDEOS) */
 .modal-media-preview {
     width: 100%;
-    max-width: 500px; /* Increased from 350px */
+    max-width: 650px; /* Increased from 500px for images */
     border-radius: 8px;
     cursor: pointer;
     transition: transform 0.2s ease;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); /* Enhanced shadow */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     margin-bottom: 20px;
 }
 
@@ -287,11 +287,20 @@ body {
     transform: scale(1.02);
 }
 
-.modal-media-preview img,
+/* Separate sizing for images vs videos */
+.modal-media-preview img {
+    width: 100%;
+    height: auto;
+    max-height: 600px; /* Increased from 450px for images */
+    object-fit: contain;
+    border-radius: 8px;
+}
+
 .modal-media-preview video {
     width: 100%;
     height: auto;
-    max-height: 450px; /* Increased from 300px */
+    max-height: 450px; /* Keep videos at original size */
+    max-width: 500px; /* Keep videos at original width */
     object-fit: contain;
     border-radius: 8px;
 }
@@ -333,7 +342,7 @@ body {
 
 /* Title below media preview */
 .modal-media-title {
-    font-size: 18px; /* Increased from 16px */
+    font-size: 18px;
     font-weight: bold;
     color: #2c3e50;
     text-align: center;
@@ -356,12 +365,12 @@ body {
 }
 
 .form-group {
-    margin-bottom: 18px; /* Slightly reduced from 20px */
+    margin-bottom: 18px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 6px; /* Reduced from 8px */
+    margin-bottom: 6px;
     font-weight: bold;
     color: #2c3e50;
     font-size: 14px;
@@ -370,9 +379,9 @@ body {
 .form-group input,
 .form-group textarea {
     width: 100%;
-    padding: 8px; /* Reduced from 10px */
+    padding: 8px;
     border: 1px solid #ddd;
-    border-radius: 5px; /* Reduced from 6px */
+    border-radius: 5px;
     font-size: 14px;
     transition: border-color 0.2s ease;
 }
@@ -385,48 +394,48 @@ body {
 }
 
 .form-group textarea {
-    height: 80px; /* Reduced from 100px */
+    height: 80px;
     resize: vertical;
 }
 
 /* Metadata display section (COMPRESSED) */
 .metadata-display-section {
     background: #f8f9fa;
-    padding: 12px; /* Reduced from 15px */
-    border-radius: 6px; /* Reduced from 8px */
+    padding: 12px;
+    border-radius: 6px;
     font-family: monospace;
-    font-size: 11px; /* Reduced from 12px */
-    max-height: 200px; /* SIGNIFICANTLY reduced from 350px */
+    font-size: 11px;
+    max-height: 200px;
     overflow-y: auto;
     border: 1px solid #e9ecef;
-    line-height: 1.3; /* Tighter line spacing */
+    line-height: 1.3;
 }
 
 /* Compressed metadata sections */
 .metadata-display-section h4 {
-    font-size: 13px !important; /* Smaller headers */
-    margin: 0 0 6px 0 !important; /* Reduced margins */
+    font-size: 13px !important;
+    margin: 0 0 6px 0 !important;
 }
 
 .metadata-display-section > div {
-    margin-bottom: 10px !important; /* Reduced spacing between sections */
+    margin-bottom: 10px !important;
 }
 
 .metadata-display-section details {
-    margin-top: 4px !important; /* Reduced spacing */
+    margin-top: 4px !important;
 }
 
 .metadata-display-section pre {
-    font-size: 10px !important; /* Smaller code text */
-    max-height: 120px !important; /* Smaller code blocks */
-    padding: 6px !important; /* Reduced padding */
+    font-size: 10px !important;
+    max-height: 120px !important;
+    padding: 6px !important;
 }
 
 /* Button section at bottom of right panel */
 .modal-buttons {
-    padding: 15px 0; /* Reduced from 20px */
+    padding: 15px 0;
     border-top: 1px solid #eee;
-    margin-top: 15px; /* Reduced from 20px */
+    margin-top: 15px;
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
@@ -435,9 +444,9 @@ body {
 .btn {
     background: #3498db;
     color: white;
-    padding: 10px 18px; /* Slightly reduced */
+    padding: 10px 18px;
     border: none;
-    border-radius: 5px; /* Reduced from 6px */
+    border-radius: 5px;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -478,19 +487,44 @@ body {
     background: #5a6268;
 }
 
-/* Full-size image overlay */
+/* IMPROVED Full-size image overlay */
 .fullsize-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(0, 0, 0, 0.7); /* More transparent - was 0.95 */
     z-index: 2000;
     display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+}
+
+/* X button for fullsize overlay */
+.fullsize-close-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px; /* Upper left corner */
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 2001;
+    color: #333;
+}
+
+.fullsize-close-btn:hover {
+    background: white;
+    transform: scale(1.1);
 }
 
 .fullsize-media {
@@ -500,48 +534,92 @@ body {
     border-radius: 8px;
 }
 
-/* Responsive design for smaller screens */
+/* IMPROVED Responsive design - Better breakpoints and single-column layout */
+@media (max-width: 1400px) {
+    .modal-left-panel {
+        flex: 0 0 600px; /* Scale down left panel */
+    }
+    
+    .modal-media-preview {
+        max-width: 550px;
+    }
+    
+    .modal-media-preview img {
+        max-height: 500px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .modal-left-panel {
+        flex: 0 0 500px; /* Further scale down */
+    }
+    
+    .modal-media-preview {
+        max-width: 450px;
+    }
+    
+    .modal-media-preview img {
+        max-height: 400px;
+    }
+}
+
 @media (max-width: 1024px) {
     .modal-left-panel {
-        flex: 0 0 450px; /* Smaller but still substantial */
+        flex: 0 0 450px;
     }
     
     .modal-media-preview {
         max-width: 400px;
     }
     
-    .modal-media-preview img,
-    .modal-media-preview video {
+    .modal-media-preview img {
         max-height: 350px;
     }
 }
 
+/* SINGLE COLUMN LAYOUT for smaller screens */
 @media (max-width: 768px) {
     .modal-content {
-        flex-direction: column;
+        flex-direction: column; /* Switch to single column */
         max-height: 95vh;
         margin: 10px;
         width: calc(100% - 20px);
     }
     
     .modal-left-panel {
-        flex: 0 0 auto;
+        flex: 0 0 auto; /* Auto height in column layout */
         border-right: none;
         border-bottom: 1px solid #dee2e6;
         padding: 15px;
     }
     
     .modal-media-preview {
-        max-width: 300px;
+        max-width: 100%;
+        max-width: 400px; /* Reasonable max for mobile */
     }
     
-    .modal-media-preview img,
+    .modal-media-preview img {
+        max-height: 300px; /* Reasonable height for mobile */
+    }
+    
     .modal-media-preview video {
-        max-height: 250px;
+        max-height: 250px; /* Scale down videos on mobile too */
+        max-width: 350px;
     }
     
     .modal-right-panel {
-        max-height: 60vh;
+        max-height: 60vh; /* Limit metadata section height */
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-media-preview img {
+        max-height: 250px; /* Even smaller for very small screens */
+    }
+    
+    .modal-media-preview video {
+        max-height: 200px;
+        max-width: 300px;
     }
 }
 
