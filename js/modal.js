@@ -1,4 +1,5 @@
 // modal.js - Handles image/video modal display and interactions
+// v2.2 - Two-column layout with fixed left panel
 
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
@@ -7,34 +8,43 @@ import { showNotification, downloadBlob, generateSafeFilename } from './utils.js
 let currentImageId = null;
 let currentImageData = null;
 
-// Open image/video modal
+// Open image/video modal with new two-column layout
 export function openImageModal(item, autoplay = false) {
     currentImageId = item.id;
     currentImageData = item;
     const modal = document.getElementById('imageModal');
-    const modalImage = document.getElementById('modalImage');
-    const modalVideo = document.getElementById('modalVideo');
+    
+    // Get or create the new modal structure
+    ensureModalStructure();
+    
+    const modalPreviewImg = document.getElementById('modalPreviewImg');
+    const modalPreviewVideo = document.getElementById('modalPreviewVideo');
+    const modalMediaTitle = document.getElementById('modalMediaTitle');
     const downloadWorkflow = document.getElementById('downloadWorkflow');
     
     const isVideo = item.mediaType === 'video';
     
+    // Set up media preview in left panel
     if (isVideo) {
         // Show video, hide image
-        modalImage.style.display = 'none';
-        modalVideo.style.display = 'block';
-        modalVideo.src = item.imageData;
+        modalPreviewImg.style.display = 'none';
+        modalPreviewVideo.style.display = 'block';
+        modalPreviewVideo.src = item.imageData;
         
         if (autoplay) {
-            modalVideo.play();
+            modalPreviewVideo.play().catch(e => console.log('Autoplay failed:', e));
         }
     } else {
         // Show image, hide video
-        modalVideo.style.display = 'none';
-        modalImage.style.display = 'block';
-        modalImage.src = item.imageData;
+        modalPreviewVideo.style.display = 'none';
+        modalPreviewImg.style.display = 'block';
+        modalPreviewImg.src = item.imageData;
     }
     
-    // Populate form fields
+    // Set title below media preview
+    modalMediaTitle.textContent = item.title || 'Untitled';
+    
+    // Populate form fields in right panel
     document.getElementById('imageTitle').value = item.title || '';
     document.getElementById('imagePrompt').value = item.prompt || '';
     document.getElementById('imageModel').value = item.model || '';
@@ -52,7 +62,182 @@ export function openImageModal(item, autoplay = false) {
     // Display organized metadata
     displayOrganizedMetadata(item.metadata, isVideo);
     
+    // Set up click handlers for full-size view
+    setupFullSizeHandlers(item, isVideo);
+    
     modal.style.display = 'block';
+}
+
+// Ensure the modal has the correct two-column structure
+function ensureModalStructure() {
+    const modal = document.getElementById('imageModal');
+    const modalContent = modal.querySelector('.modal-content');
+    
+    // Check if we need to update the structure
+    if (!modalContent.querySelector('.modal-left-panel')) {
+        // Create new two-column structure
+        modalContent.innerHTML = `
+            <span class="close" id="closeModal">&times;</span>
+            
+            <!-- Left Panel - Fixed -->
+            <div class="modal-left-panel">
+                <div class="modal-media-preview">
+                    <img id="modalPreviewImg" src="" alt="" style="display: none;">
+                    <video id="modalPreviewVideo" controls style="display: none;">
+                        <source src="" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                <div class="modal-media-title" id="modalMediaTitle">Untitled</div>
+            </div>
+            
+            <!-- Right Panel - Scrollable -->
+            <div class="modal-right-panel">
+                <div class="metadata-form">
+                    <div class="form-group">
+                        <label for="imageTitle">Title:</label>
+                        <input type="text" id="imageTitle" placeholder="Enter media title">
+                    </div>
+                    <div class="form-group">
+                        <label for="imagePrompt">AI Prompt:</label>
+                        <textarea id="imagePrompt" placeholder="Enter the AI prompt used to generate this media"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="imageModel">AI Model:</label>
+                        <input type="text" id="imageModel" placeholder="e.g., DALL-E 3, Midjourney, Stable Diffusion, Sora">
+                    </div>
+                    <div class="form-group">
+                        <label for="imageTags">Tags:</label>
+                        <input type="text" id="imageTags" placeholder="Enter tags separated by commas">
+                    </div>
+                    <div class="form-group">
+                        <label for="imageNotes">Notes:</label>
+                        <textarea id="imageNotes" placeholder="Additional notes about this media"></textarea>
+                    </div>
+                    
+                    <!-- Metadata display -->
+                    <div class="form-group">
+                        <label>📋 Media Metadata:</label>
+                        <div class="metadata-display-section">
+                            
+                            <!-- Prompt Section -->
+                            <div id="promptSection" style="display: none;">
+                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                    🎯 Prompt Data:
+                                </h4>
+                                <div id="promptDisplay" style="background: #e8f4f8; padding: 8px; border-radius: 4px; margin-bottom: 15px; border-left: 3px solid #3498db;">
+                                    <em>No prompt data found</em>
+                                </div>
+                            </div>
+                            
+                            <!-- Workflow Section -->
+                            <div id="workflowSection" style="display: none;">
+                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                    🔧 Workflow Data:
+                                </h4>
+                                <div id="workflowDisplay" style="background: #fff3cd; padding: 8px; border-radius: 4px; margin-bottom: 15px; border-left: 3px solid #ffc107;">
+                                    <em>No workflow data found</em>
+                                </div>
+                            </div>
+                            
+                            <!-- Other Metadata Section -->
+                            <div id="otherMetadataSection" style="display: none;">
+                                <h4 style="color: #2c3e50; margin: 0 0 10px 0; font-size: 14px; font-family: Arial, sans-serif;">
+                                    📄 Other Metadata:
+                                </h4>
+                                <div id="otherMetadataDisplay" style="background: #f8f9fa; padding: 8px; border-radius: 4px; border-left: 3px solid #6c757d;">
+                                    <em>No other metadata found</em>
+                                </div>
+                            </div>
+                            
+                            <!-- No metadata message -->
+                            <div id="noMetadataMessage" style="text-align: center; color: #6c757d; font-style: italic;">
+                                No metadata found
+                            </div>
+                            
+                        </div>
+                    </div>
+                    
+                    <!-- Buttons Section -->
+                    <div class="modal-buttons">
+                        <button class="btn" id="saveMetadata">Save Changes</button>
+                        <button class="btn btn-danger" id="deleteImage">Delete Media</button>
+                        <button class="btn btn-workflow" id="downloadWorkflow" style="display: none;">Download ComfyUI Workflow</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Setup click handlers for full-size media view
+function setupFullSizeHandlers(item, isVideo) {
+    const modalPreviewImg = document.getElementById('modalPreviewImg');
+    const modalPreviewVideo = document.getElementById('modalPreviewVideo');
+    
+    // Remove existing handlers
+    modalPreviewImg.onclick = null;
+    modalPreviewVideo.onclick = null;
+    
+    if (isVideo) {
+        // For videos, clicking opens full-size in overlay
+        modalPreviewVideo.onclick = (e) => {
+            e.stopPropagation();
+            openFullSizeMedia(item.imageData, 'video');
+        };
+    } else {
+        // For images, clicking opens full-size in overlay
+        modalPreviewImg.onclick = (e) => {
+            e.stopPropagation();
+            openFullSizeMedia(item.imageData, 'image');
+        };
+    }
+}
+
+// Open full-size media in overlay
+function openFullSizeMedia(mediaSrc, mediaType) {
+    // Create or get existing overlay
+    let overlay = document.getElementById('fullsizeOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'fullsizeOverlay';
+        overlay.className = 'fullsize-overlay';
+        document.body.appendChild(overlay);
+        
+        // Close on click
+        overlay.onclick = () => {
+            overlay.style.display = 'none';
+            // Stop video if it's playing
+            const video = overlay.querySelector('video');
+            if (video) {
+                video.pause();
+            }
+        };
+    }
+    
+    // Create media element
+    let mediaElement;
+    if (mediaType === 'video') {
+        mediaElement = document.createElement('video');
+        mediaElement.controls = true;
+        mediaElement.autoplay = true;
+        mediaElement.src = mediaSrc;
+    } else {
+        mediaElement = document.createElement('img');
+        mediaElement.src = mediaSrc;
+    }
+    
+    mediaElement.className = 'fullsize-media';
+    
+    // Prevent media click from closing overlay
+    mediaElement.onclick = (e) => e.stopPropagation();
+    
+    // Clear previous content and add new media
+    overlay.innerHTML = '';
+    overlay.appendChild(mediaElement);
+    
+    // Show overlay
+    overlay.style.display = 'flex';
 }
 
 // Save metadata (works for both images and videos)
@@ -69,7 +254,12 @@ export async function saveImageMetadata() {
     
     try {
         await database.updateMedia(currentImageId, updatedData);
-        closeModal();
+        
+        // Update the title in the modal
+        const modalMediaTitle = document.getElementById('modalMediaTitle');
+        if (modalMediaTitle) {
+            modalMediaTitle.textContent = updatedData.title || 'Untitled';
+        }
         
         // Trigger reload in main app
         window.dispatchEvent(new CustomEvent('mediaUpdated'));
@@ -179,11 +369,21 @@ export function closeModal() {
     const modal = document.getElementById('imageModal');
     modal.style.display = 'none';
     
-    // Stop any playing video
-    const modalVideo = document.getElementById('modalVideo');
+    // Stop any playing video in modal
+    const modalVideo = document.getElementById('modalPreviewVideo');
     if (modalVideo) {
         modalVideo.pause();
         modalVideo.src = '';
+    }
+    
+    // Close full-size overlay if open
+    const fullsizeOverlay = document.getElementById('fullsizeOverlay');
+    if (fullsizeOverlay) {
+        fullsizeOverlay.style.display = 'none';
+        const video = fullsizeOverlay.querySelector('video');
+        if (video) {
+            video.pause();
+        }
     }
     
     currentImageId = null;
@@ -193,23 +393,32 @@ export function closeModal() {
 // Setup modal event listeners
 export function setupModalEventListeners() {
     const modal = document.getElementById('imageModal');
-    const closeModalBtn = document.getElementById('closeModal');
-    const saveMetadata = document.getElementById('saveMetadata');
-    const deleteImage = document.getElementById('deleteImage');
-    const downloadWorkflow = document.getElementById('downloadWorkflow');
 
-    // Modal events
-    closeModalBtn.addEventListener('click', closeModal);
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
+    // Modal events (using event delegation since content is dynamic)
+    modal.addEventListener('click', (e) => {
+        // Close modal if clicking the modal background
+        if (e.target === modal) {
+            closeModal();
+        }
+        
+        // Handle button clicks
+        if (e.target.id === 'closeModal') {
+            closeModal();
+        } else if (e.target.id === 'saveMetadata') {
+            saveImageMetadata();
+        } else if (e.target.id === 'deleteImage') {
+            deleteCurrentImage();
+        } else if (e.target.id === 'downloadWorkflow') {
+            downloadCurrentWorkflow();
+        }
     });
-
-    // Save and delete buttons
-    saveMetadata.addEventListener('click', saveImageMetadata);
-    deleteImage.addEventListener('click', deleteCurrentImage);
     
-    // Download workflow button
-    downloadWorkflow.addEventListener('click', downloadCurrentWorkflow);
+    // Handle escape key to close modal
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
 }
 
 // Get current image data (for other modules)
