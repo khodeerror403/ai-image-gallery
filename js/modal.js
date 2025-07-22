@@ -160,7 +160,7 @@ function ensureModalStructure() {
                     <span class="loop-indicator" id="loopIndicator">🔄 Loop: OFF</span>
                 </div>
                 
-                <div class="modal-media-title" id="modalMediaTitle">Untitled</div>
+                <div class="modal-media-title" id="modalMediaTitle" style="display: none;">Untitled</div>
             </div>
             
             <!-- Right Panel - Scrollable with COMPRESSED metadata -->
@@ -505,3 +505,4 @@ export function setupModalEventListeners() {
 export function getCurrentImageData() {
     return currentImageData;
 }
+
