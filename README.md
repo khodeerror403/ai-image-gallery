@@ -1,5 +1,6 @@
 # ai-image-gallery
-A web app for storing your AI generated art.  It is tailored to the AI artist that wants a better way to manage their art.
+
+A web application designed for AI artists, providing a dedicated platform to store and manage their generated artwork efficiently.
 
 ![Screenshot of My Awesome App](github_assets/gallery.png)
 
