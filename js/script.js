@@ -1,7 +1,7 @@
-// script.js - Main application entry point (v2.1 - Modular with top-aligned thumbnails)
+// script.js - Main application entry point (v3.0 - SQLite)
 
-// Import all modules
-import { database } from './database.js';
+// Import all modules (keeping existing structure)
+import { database } from './database.js';  // ← Fixed import path
 import { handleFileSelect, handleFileDrop } from './mediaProcessor.js';
 import { displayImages, updateStats, setAllImages } from './gallery.js';
 import { setupModalEventListeners } from './modal.js';
@@ -11,7 +11,7 @@ import { debounce, showNotification, downloadBlob, generateSafeFilename } from '
 
 // Initialize the app
 async function init() {
-    console.log('🚀 Initializing AI Media Gallery v2.1 (Modular)');
+    console.log('🚀 Initializing AI Media Gallery v3.0');
     
     try {
         await loadImages();
@@ -19,7 +19,7 @@ async function init() {
         setupEventListeners();
         setupModalEventListeners();
         setupThumbnailPositionPicker();
-        addThumbnailGenerationControls(); // Add thumbnail generation UI
+        addThumbnailGenerationControls();
         
         console.log('✅ App initialized successfully');
     } catch (error) {
@@ -31,21 +31,11 @@ async function init() {
 // Load all images and display them
 async function loadImages() {
     try {
-        console.log('🔄 Loading images from database...');
         const allImages = await database.loadAllMedia();
-        console.log(`📊 Loaded ${allImages.length} items from database`);
-        
-        // Debug: Log each item to see if any have invalid/deleted references
-        allImages.forEach((item, index) => {
-            console.log(`📋 Item ${index + 1}: ID=${item.id}, Type=${item.mediaType || 'image'}, Title="${item.title || 'Untitled'}", HasImageData=${!!item.imageData}, ServerPath=${item.serverPath || 'none'}`);
-        });
-        
         setAllImages(allImages);
-        console.log('🎨 About to display images in gallery...');
         displayImages(allImages);
-        console.log('✅ Gallery display complete');
     } catch (error) {
-        console.error('❌ Error loading images:', error);
+        console.error('Error loading images:', error);
         showNotification('Error loading media: ' + error.message, 'error');
     }
 }
