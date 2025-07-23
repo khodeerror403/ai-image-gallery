@@ -19,9 +19,19 @@ const storage = multer.diskStorage({
     const isVideo = file.mimetype.startsWith('video/');
     const mediaFolder = isVideo ? 'videos' : 'images';
     
-    // Create date-based folder (YYYY-MM-DD)
-    const today = new Date();
-    const dateFolder = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Create date-based folder (YYYY-MM-DD) using server's local timezone
+    const localDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+    
+    const dateFolder = localDate; // This will be in YYYY-MM-DD format
+    
+    console.log(`📅 Creating folder for local date: ${dateFolder}`);
+    console.log(`📅 Server timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+    
     const uploadPath = path.join(__dirname, mediaFolder, dateFolder);
     
     // Create directory if it doesn't exist

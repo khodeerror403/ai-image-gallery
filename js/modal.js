@@ -387,15 +387,7 @@ export async function deleteCurrentImage() {
             // Delete from database
             await database.deleteMedia(currentImageId);
             
-            // Clear any video sources before closing modal to prevent "Invalid URI" errors
-            const modalVideo = document.getElementById('modalPreviewVideo');
-            if (modalVideo) {
-                modalVideo.pause();
-                modalVideo.src = '';
-                modalVideo.load(); // Force reload to clear the source
-            }
-            
-            // Close modal after clearing sources
+            // Close modal immediately to hide the content
             closeModal();
             
             // Trigger reload in main app
@@ -485,11 +477,33 @@ export function closeModal() {
     const modal = document.getElementById('imageModal');
     modal.style.display = 'none';
     
-    // Stop any playing video in modal
+    // Stop any playing video in modal and clean up sources
     const modalVideo = document.getElementById('modalPreviewVideo');
     if (modalVideo) {
         modalVideo.pause();
+        
+        // If the src is a blob URL, revoke it to prevent memory leaks
+        if (modalVideo.src && modalVideo.src.startsWith('blob:')) {
+            URL.revokeObjectURL(modalVideo.src);
+        }
+        
         modalVideo.src = '';
+        modalVideo.removeAttribute('src');
+        modalVideo.load();
+        
+        // Add error handler to suppress any remaining "Invalid URI" errors
+        modalVideo.onerror = () => {
+            // Silently ignore errors after deletion
+        };
+    }
+    
+    // Clear image source as well
+    const modalImage = document.getElementById('modalPreviewImg');
+    if (modalImage) {
+        modalImage.src = '';
+        modalImage.onerror = () => {
+            // Silently ignore errors after deletion
+        };
     }
     
     // Close full-size overlay if open
@@ -499,6 +513,13 @@ export function closeModal() {
         const video = fullsizeOverlay.querySelector('video');
         if (video) {
             video.pause();
+            if (video.src && video.src.startsWith('blob:')) {
+                URL.revokeObjectURL(video.src);
+            }
+            video.src = '';
+            video.onerror = () => {
+                // Silently ignore errors
+            };
         }
     }
     
