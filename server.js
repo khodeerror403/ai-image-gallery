@@ -115,6 +115,37 @@ app.post('/upload-multiple', upload.array('images', 20), (req, res) => {
   }
 });
 
+// DELETE endpoint for removing files from server
+app.delete('/delete/:relativePath(*)', (req, res) => {
+  try {
+    const relativePath = req.params.relativePath;
+    const fullPath = path.join(__dirname, relativePath);
+    
+    // Security check: ensure the path is within our project directory
+    const resolvedPath = path.resolve(fullPath);
+    const projectRoot = path.resolve(__dirname);
+    
+    if (!resolvedPath.startsWith(projectRoot)) {
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+    
+    // Check if file exists
+    if (!fs.existsSync(resolvedPath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    
+    // Delete the file
+    fs.unlinkSync(resolvedPath);
+    
+    console.log(`🗑️ Deleted file: ${relativePath}`);
+    res.json({ success: true, message: 'File deleted successfully', path: relativePath });
+    
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ error: 'Delete failed: ' + error.message });
+  }
+});
+
 // Get list of uploaded media organized by date (searches both images/ and videos/ directories)
 app.get('/api/images', (req, res) => {
   try {

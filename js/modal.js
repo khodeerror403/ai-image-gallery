@@ -366,6 +366,25 @@ export async function deleteCurrentImage() {
     
     if (confirm(`Are you sure you want to delete this ${mediaType}?`)) {
         try {
+            // First, delete from server if serverPath exists
+            if (currentImageData.serverPath) {
+                try {
+                    const response = await fetch(`/delete/${encodeURIComponent(currentImageData.serverPath)}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        console.log('✅ File deleted from server');
+                    } else {
+                        console.warn('⚠️ Server file deletion failed, continuing with database deletion');
+                    }
+                } catch (serverError) {
+                    console.warn('⚠️ Server delete request failed:', serverError);
+                    // Continue with database deletion even if server deletion fails
+                }
+            }
+            
+            // Delete from database
             await database.deleteMedia(currentImageId);
             
             // Clear any video sources before closing modal to prevent "Invalid URI" errors
