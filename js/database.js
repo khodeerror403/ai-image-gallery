@@ -41,9 +41,41 @@ export const database = {
         return await db.images.update(id, updateData);
     },
 
-    // Delete a media item
+    // Delete a media item with debugging
     async deleteMedia(id) {
-        return await db.images.delete(id);
+        console.log(`🗄️ Database: Attempting to delete item with ID: ${id}`);
+        
+        try {
+            // First check if the item exists
+            const existingItem = await db.images.get(id);
+            if (!existingItem) {
+                console.warn(`⚠️ Database: Item ${id} not found in database`);
+                return 0; // Dexie returns 0 when no rows deleted
+            }
+            
+            console.log(`📋 Database: Found item to delete:`, {
+                id: existingItem.id,
+                title: existingItem.title,
+                mediaType: existingItem.mediaType
+            });
+            
+            // Perform the deletion
+            const result = await db.images.delete(id);
+            console.log(`✅ Database: Deletion result: ${result} (1 = success, 0 = not found)`);
+            
+            // Verify deletion by trying to get the item again
+            const verifyDeleted = await db.images.get(id);
+            if (verifyDeleted) {
+                console.error(`❌ Database: DELETION FAILED - Item ${id} still exists!`);
+            } else {
+                console.log(`✅ Database: Verified - Item ${id} successfully deleted`);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error(`❌ Database: Error deleting item ${id}:`, error);
+            throw error;
+        }
     },
 
     // Get a specific media item by ID
