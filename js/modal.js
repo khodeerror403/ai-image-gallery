@@ -1,5 +1,5 @@
 // modal.js - Handles image/video modal display and interactions
-// v2.3 - Complete version with larger preview, fixed video playback and loop controls
+// v2.5 - Fixed source element cleanup to prevent media load errors
 
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
@@ -358,7 +358,105 @@ export async function saveImageMetadata() {
     }
 }
 
-// Delete current item (works for both images and videos) - WITH GALLERY CLEARING FIX
+// Enhanced media cleanup utility function - FIXED SOURCE ELEMENT HANDLING
+function cleanupMediaElement(element, elementType = 'unknown', verbose = false) {
+    if (!element) return;
+    
+    try {
+        // For video elements
+        if (element.tagName === 'VIDEO' || elementType.includes('video')) {
+            if (verbose) console.log(`🧹 Cleaning up ${elementType} element...`);
+            
+            // Pause the video first
+            if (typeof element.pause === 'function') {
+                element.pause();
+            }
+            
+            // Remove all event listeners to prevent further errors
+            element.onloadstart = null;
+            element.onloadeddata = null;
+            element.onerror = null;
+            element.onended = null;
+            element.onplay = null;
+            element.onpause = null;
+            element.oncanplay = null;
+            element.onloadedmetadata = null;
+            element.onstalled = null;
+            element.onsuspend = null;
+            element.onabort = null;
+            element.onemptied = null;
+            
+            // IMPORTANT: Handle source elements BEFORE clearing main src
+            const sources = element.querySelectorAll('source');
+            sources.forEach(source => {
+                // Add silent error handler to source elements
+                source.onerror = () => {};
+                source.onabort = () => {};
+                // Remove the source element entirely instead of just clearing src
+                if (source.parentNode) {
+                    source.parentNode.removeChild(source);
+                }
+            });
+            
+            // Clear the main video source
+            const currentSrc = element.src;
+            if (currentSrc && currentSrc.startsWith('blob:')) {
+                URL.revokeObjectURL(currentSrc);
+                if (verbose) console.log(`🗑️ Revoked blob URL for ${elementType}`);
+            }
+            
+            // Add comprehensive silent error handler BEFORE clearing src
+            element.onerror = () => {};
+            element.onabort = () => {};
+            element.onstalled = () => {};
+            element.onsuspend = () => {};
+            element.onemptied = () => {};
+            
+            // Clear main source
+            element.src = '';
+            element.removeAttribute('src');
+            
+            // Call load() to cancel any pending network requests
+            if (typeof element.load === 'function') {
+                element.load();
+            }
+            
+            // Additional cleanup - briefly hide the element to force browser cleanup
+            const originalDisplay = element.style.display;
+            element.style.display = 'none';
+            // Use requestAnimationFrame to ensure the display change is processed
+            requestAnimationFrame(() => {
+                element.style.display = originalDisplay;
+            });
+        }
+        
+        // For image elements
+        if (element.tagName === 'IMG' || elementType.includes('image')) {
+            if (verbose) console.log(`🧹 Cleaning up ${elementType} element...`);
+            
+            const currentSrc = element.src;
+            if (currentSrc && currentSrc.startsWith('blob:')) {
+                URL.revokeObjectURL(currentSrc);
+                if (verbose) console.log(`🗑️ Revoked blob URL for ${elementType}`);
+            }
+            
+            // Add silent error handler
+            element.onerror = () => {};
+            element.onload = () => {};
+            element.onabort = () => {};
+            
+            element.src = '';
+            element.removeAttribute('src');
+        }
+        
+        if (verbose) console.log(`✅ ${elementType} cleanup completed`);
+    } catch (cleanupError) {
+        if (verbose) console.warn(`⚠️ Minor error during ${elementType} cleanup:`, cleanupError);
+        // Continue execution even if cleanup has minor issues
+    }
+}
+
+// Delete current item (works for both images and videos) - OPTIMIZED CLEANUP
 export async function deleteCurrentImage() {
     if (!currentImageId) return;
     
@@ -368,7 +466,32 @@ export async function deleteCurrentImage() {
         try {
             console.log(`🗑️ Starting deletion process for item ${currentImageId} (${mediaType})`);
             
-            // First, delete from server if serverPath exists
+            // STEP 1: Clean up modal media elements FIRST (most important)
+            console.log(`🧹 Cleaning up modal media elements...`);
+            const modalVideo = document.getElementById('modalPreviewVideo');
+            const modalImage = document.getElementById('modalPreviewImg');
+            
+            if (modalVideo) {
+                cleanupMediaElement(modalVideo, 'modal-video', true);
+            }
+            if (modalImage) {
+                cleanupMediaElement(modalImage, 'modal-image', true);
+            }
+            
+            // STEP 2: Clean up any fullsize overlay
+            const fullsizeOverlay = document.getElementById('fullsizeOverlay');
+            if (fullsizeOverlay && fullsizeOverlay.style.display !== 'none') {
+                console.log(`🧹 Cleaning up fullsize overlay...`);
+                const overlayVideo = fullsizeOverlay.querySelector('video');
+                const overlayImage = fullsizeOverlay.querySelector('img');
+                
+                if (overlayVideo) cleanupMediaElement(overlayVideo, 'overlay-video', true);
+                if (overlayImage) cleanupMediaElement(overlayImage, 'overlay-image', true);
+                
+                fullsizeOverlay.style.display = 'none';
+            }
+            
+            // STEP 3: Delete from server if serverPath exists
             if (currentImageData.serverPath) {
                 try {
                     const response = await fetch(`/delete/${encodeURIComponent(currentImageData.serverPath)}`, {
@@ -386,39 +509,45 @@ export async function deleteCurrentImage() {
                 }
             }
             
-            // Delete from database with better error handling
+            // STEP 4: Delete from database
             console.log(`🗄️ Attempting to delete item ${currentImageId} from database...`);
             const deleteResult = await database.deleteMedia(currentImageId);
             console.log(`✅ Database deletion result:`, deleteResult);
             
-            // Close modal
+            // STEP 5: Close modal
+            console.log(`🚪 Closing modal with cleanup...`);
             closeModal();
             
-            // Clear the gallery completely before reload to prevent stale references
+            // STEP 6: Quick gallery cleanup - target only video elements in gallery
             const gallery = document.getElementById('gallery');
             if (gallery) {
-                // Find and clear any video elements in gallery cards
-                const videoElements = gallery.querySelectorAll('video, img[src*="data:video"]');
-                videoElements.forEach(element => {
-                    if (element.tagName === 'VIDEO') {
-                        element.pause();
-                        element.src = '';
-                        element.load();
-                    } else {
-                        element.src = '';
-                    }
-                });
+                console.log(`🧹 Performing targeted gallery cleanup...`);
                 
-                // Clear the entire gallery to remove any stale DOM references
+                // Only clean up video elements (most likely to cause media load errors)
+                const galleryVideos = gallery.querySelectorAll('video');
+                if (galleryVideos.length > 0) {
+                    console.log(`🎬 Found ${galleryVideos.length} video elements in gallery, cleaning...`);
+                    galleryVideos.forEach(video => cleanupMediaElement(video, 'gallery-video', false));
+                }
+                
+                // Clean up any images with blob URLs only (not all images)
+                const galleryImages = gallery.querySelectorAll('img[src^="blob:"]');
+                if (galleryImages.length > 0) {
+                    console.log(`🖼️ Found ${galleryImages.length} blob images in gallery, cleaning...`);
+                    galleryImages.forEach(img => cleanupMediaElement(img, 'gallery-blob-image', false));
+                }
+                
+                // Clear the entire gallery HTML after targeted cleanup
                 gallery.innerHTML = '';
-                console.log('🧹 Gallery cleared before reload');
+                console.log('🧹 Gallery DOM cleared');
             }
             
-            // Small delay to ensure cleanup is complete before reload
+            // STEP 7: Wait for cleanup to complete, then reload
+            console.log(`⏳ Waiting for cleanup to complete before reload...`);
             setTimeout(() => {
-                console.log('🔄 Triggering media reload after cleanup...');
+                console.log('🔄 Triggering media reload after optimized cleanup...');
                 window.dispatchEvent(new CustomEvent('mediaUpdated'));
-            }, 300);
+            }, 400); // Slightly reduced delay
             
             showNotification(`${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} deleted successfully!`, 'success');
         } catch (error) {
@@ -499,59 +628,46 @@ export function downloadCurrentWorkflow() {
     showNotification(`Downloaded ComfyUI workflow for "${currentImageData.title || 'Untitled'}"! This file can be directly imported into ComfyUI.`, 'success');
 }
 
-// Close modal
+// Enhanced close modal with comprehensive cleanup
 export function closeModal() {
     const modal = document.getElementById('imageModal');
     modal.style.display = 'none';
     
-    // Stop any playing video in modal and clean up sources
+    console.log(`🚪 Closing modal and cleaning up media elements...`);
+    
+    // Clean up modal video with enhanced cleanup
     const modalVideo = document.getElementById('modalPreviewVideo');
     if (modalVideo) {
-        modalVideo.pause();
-        
-        // If the src is a blob URL, revoke it to prevent memory leaks
-        if (modalVideo.src && modalVideo.src.startsWith('blob:')) {
-            URL.revokeObjectURL(modalVideo.src);
-        }
-        
-        modalVideo.src = '';
-        modalVideo.removeAttribute('src');
-        modalVideo.load();
-        
-        // Add error handler to suppress any remaining "Invalid URI" errors
-        modalVideo.onerror = () => {
-            // Silently ignore errors after deletion
-        };
+        cleanupMediaElement(modalVideo, 'modal-video-close', true);
     }
     
-    // Clear image source as well
+    // Clean up modal image
     const modalImage = document.getElementById('modalPreviewImg');
     if (modalImage) {
-        modalImage.src = '';
-        modalImage.onerror = () => {
-            // Silently ignore errors after deletion
-        };
+        cleanupMediaElement(modalImage, 'modal-image-close', true);
     }
     
-    // Close full-size overlay if open
+    // Clean up full-size overlay
     const fullsizeOverlay = document.getElementById('fullsizeOverlay');
-    if (fullsizeOverlay) {
+    if (fullsizeOverlay && fullsizeOverlay.style.display !== 'none') {
+        console.log(`🧹 Cleaning up fullsize overlay...`);
         fullsizeOverlay.style.display = 'none';
-        const video = fullsizeOverlay.querySelector('video');
-        if (video) {
-            video.pause();
-            if (video.src && video.src.startsWith('blob:')) {
-                URL.revokeObjectURL(video.src);
-            }
-            video.src = '';
-            video.onerror = () => {
-                // Silently ignore errors
-            };
+        
+        const overlayVideo = fullsizeOverlay.querySelector('video');
+        const overlayImage = fullsizeOverlay.querySelector('img');
+        
+        if (overlayVideo) {
+            cleanupMediaElement(overlayVideo, 'overlay-video', true);
+        }
+        if (overlayImage) {
+            cleanupMediaElement(overlayImage, 'overlay-image', true);
         }
     }
     
     currentImageId = null;
     currentImageData = null;
+    
+    console.log(`✅ Modal cleanup completed`);
 }
 
 // Setup modal event listeners
