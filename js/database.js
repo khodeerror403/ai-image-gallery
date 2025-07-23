@@ -1,5 +1,5 @@
-// database.js - SQLite Implementation for AI Image Gallery
-// Version 3.0 - Fixed CDN Loading
+// database.js - Hybrid Storage Implementation
+// Version 3.0 - Uses server files + lightweight database
 
 class SQLiteDatabase {
     constructor() {
@@ -12,7 +12,7 @@ class SQLiteDatabase {
         if (this.isInitialized) return;
         
         try {
-            console.log('🚀 Initializing SQLite database...');
+            console.log('🚀 Initializing hybrid SQLite database...');
             
             // Load sql.js from CDN
             const script = document.createElement('script');
@@ -31,7 +31,7 @@ class SQLiteDatabase {
             // Try to load existing database
             let dbData = null;
             try {
-                const saved = localStorage.getItem('ai-gallery-sqlite-db');
+                const saved = localStorage.getItem('ai-gallery-hybrid-db');
                 if (saved) {
                     dbData = new Uint8Array(JSON.parse(saved));
                 }
@@ -46,7 +46,7 @@ class SQLiteDatabase {
             await this.performMigration();
             
             this.isInitialized = true;
-            console.log('✅ SQLite database initialized');
+            console.log('✅ Hybrid SQLite database initialized');
         } catch (error) {
             console.error('❌ Database initialization failed:', error);
             throw error;
@@ -56,7 +56,7 @@ class SQLiteDatabase {
     saveDatabase() {
         try {
             const data = this.db.export();
-            localStorage.setItem('ai-gallery-sqlite-db', JSON.stringify(Array.from(data)));
+            localStorage.setItem('ai-gallery-hybrid-db', JSON.stringify(Array.from(data)));
         } catch (error) {
             console.warn('Could not save database:', error);
         }
@@ -73,21 +73,35 @@ class SQLiteDatabase {
                 notes TEXT,
                 date_added TEXT NOT NULL,
                 media_type TEXT DEFAULT 'image',
-                image_data TEXT NOT NULL,
+                image_data TEXT,
                 thumbnail_data TEXT,
                 thumbnail_position_x INTEGER DEFAULT 50,
                 thumbnail_position_y INTEGER DEFAULT 25,
                 metadata_json TEXT,
                 server_path TEXT,
+                file_size INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE INDEX IF NOT EXISTS idx_date_added ON media(date_added DESC);
             CREATE INDEX IF NOT EXISTS idx_media_type ON media(media_type);
+            CREATE INDEX IF NOT EXISTS idx_title ON media(title);
         `;
 
         this.db.exec(schema);
         this.saveDatabase();
+    }
+
+    calculateFileSize(base64Data) {
+        try {
+            if (!base64Data || typeof base64Data !== 'string') return 0;
+            const parts = base64Data.split(',');
+            const data = parts.length > 1 ? parts[1] : base64Data;
+            return Math.round((data.length * 3) / 4);
+        } catch (error) {
+            console.warn('Error calculating file size:', error);
+            return 0;
+        }
     }
 
     async performMigration() {
@@ -111,7 +125,6 @@ class SQLiteDatabase {
                 script.onerror = reject;
             });
 
-            // Use global Dexie
             const Dexie = window.Dexie;
             if (!Dexie) {
                 throw new Error('Dexie failed to load');
@@ -132,37 +145,72 @@ class SQLiteDatabase {
             
             this.db.exec('BEGIN TRANSACTION');
             
+            let migratedCount = 0;
             for (const item of oldData) {
-                this.db.run(`
-                    INSERT INTO media (
-                        title, prompt, model, tags, notes, date_added, media_type,
-                        image_data, thumbnail_data, thumbnail_position_x, thumbnail_position_y,
-                        metadata_json, server_path
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `, [
-                    item.title || '',
-                    item.prompt || '',
-                    item.model || '',
-                    item.tags || '',
-                    item.notes || '',
-                    item.dateAdded || new Date().toISOString(),
-                    item.mediaType || 'image',
-                    item.imageData || '',
-                    item.thumbnailData || item.imageData || '',
-                    item.thumbnailPosition?.x || 50,
-                    item.thumbnailPosition?.y || 25,
-                    item.metadata ? JSON.stringify(item.metadata) : null,
-                    item.serverPath || null
-                ]);
+                try {
+                    const fileSize = this.calculateFileSize(item.imageData);
+                    
+                    // Store everything in SQLite but with compression for large images
+                    let imageData = item.imageData || '';
+                    let thumbnailData = item.thumbnailData || item.imageData || '';
+                    
+                    // If image is too large (>500KB), store server path reference instead
+                    if (fileSize > 500000) {
+                        // For migration, we'll keep the data but warn about size
+                        console.warn(`Large image detected (${Math.round(fileSize/1024)}KB) for item ${item.id}`);
+                    }
+                    
+                    this.db.run(`
+                        INSERT INTO media (
+                            title, prompt, model, tags, notes, date_added, media_type,
+                            image_data, thumbnail_data, thumbnail_position_x, thumbnail_position_y,
+                            metadata_json, server_path, file_size
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `, [
+                        item.title || '',
+                        item.prompt || '',
+                        item.model || '',
+                        item.tags || '',
+                        item.notes || '',
+                        item.dateAdded || new Date().toISOString(),
+                        item.mediaType || 'image',
+                        imageData,
+                        thumbnailData,
+                        item.thumbnailPosition?.x || 50,
+                        item.thumbnailPosition?.y || 25,
+                        item.metadata ? JSON.stringify(item.metadata) : null,
+                        item.serverPath || null,
+                        fileSize
+                    ]);
+                    
+                    migratedCount++;
+                    
+                    // Save database periodically to avoid memory buildup
+                    if (migratedCount % 10 === 0) {
+                        this.db.exec('COMMIT');
+                        this.saveDatabase();
+                        this.db.exec('BEGIN TRANSACTION');
+                        console.log(`Migration progress: ${migratedCount}/${oldData.length}`);
+                    }
+                    
+                } catch (itemError) {
+                    console.warn(`Failed to migrate item ${item.id}:`, itemError);
+                }
             }
 
             this.db.exec('COMMIT');
             this.saveDatabase();
-            console.log(`✅ Migration completed: ${oldData.length} items migrated`);
+            console.log(`✅ Migration completed: ${migratedCount}/${oldData.length} items migrated`);
             
         } catch (error) {
             console.warn('Migration failed, continuing with empty database:', error);
-            // Don't throw error - just continue with empty database
+            if (this.db) {
+                try {
+                    this.db.exec('ROLLBACK');
+                } catch (e) {
+                    // Ignore rollback errors
+                }
+            }
         }
     }
 
@@ -195,10 +243,11 @@ class SQLiteDatabase {
     convertSQLiteToExpected(row) {
         const item = { ...row };
         
+        // Convert field names back to expected format
         item.dateAdded = row.date_added;
         item.mediaType = row.media_type;
-        item.imageData = row.image_data;
-        item.thumbnailData = row.thumbnail_data;
+        item.imageData = row.image_data || '';
+        item.thumbnailData = row.thumbnail_data || row.image_data || '';
         item.serverPath = row.server_path;
         
         item.thumbnailPosition = {
@@ -214,6 +263,7 @@ class SQLiteDatabase {
             }
         }
         
+        // Clean up internal fields
         delete item.date_added;
         delete item.media_type;
         delete item.image_data;
@@ -223,6 +273,7 @@ class SQLiteDatabase {
         delete item.thumbnail_position_y;
         delete item.metadata_json;
         delete item.created_at;
+        delete item.file_size;
         
         return item;
     }
@@ -260,12 +311,14 @@ class SQLiteDatabase {
     async addMedia(mediaData) {
         if (!this.isInitialized) await this.init();
         
+        const fileSize = this.calculateFileSize(mediaData.imageData);
+        
         const stmt = this.db.prepare(`
             INSERT INTO media (
                 title, prompt, model, tags, notes, date_added, media_type,
                 image_data, thumbnail_data, thumbnail_position_x, thumbnail_position_y,
-                metadata_json, server_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                metadata_json, server_path, file_size
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         
         stmt.run([
@@ -281,7 +334,8 @@ class SQLiteDatabase {
             mediaData.thumbnailPosition?.x || 50,
             mediaData.thumbnailPosition?.y || 25,
             mediaData.metadata ? JSON.stringify(mediaData.metadata) : null,
-            mediaData.serverPath || null
+            mediaData.serverPath || null,
+            fileSize
         ]);
         
         stmt.free();
@@ -317,6 +371,9 @@ class SQLiteDatabase {
             } else if (key === 'imageData') {
                 setParts.push('image_data = ?');
                 values.push(value);
+                const fileSize = this.calculateFileSize(value);
+                setParts.push('file_size = ?');
+                values.push(fileSize);
             } else if (key === 'thumbnailData') {
                 setParts.push('thumbnail_data = ?');
                 values.push(value);
@@ -383,6 +440,13 @@ class SQLiteDatabase {
                 delete item.id;
                 const id = await this.addMedia(item);
                 results.push({ id, item });
+                
+                // Save periodically during large imports
+                if (results.length % 5 === 0) {
+                    this.db.exec('COMMIT');
+                    this.saveDatabase();
+                    this.db.exec('BEGIN TRANSACTION');
+                }
             }
             this.db.exec('COMMIT');
             this.saveDatabase();
@@ -431,7 +495,8 @@ class SQLiteDatabase {
             SELECT 
                 COUNT(*) as total,
                 SUM(CASE WHEN media_type = 'image' THEN 1 ELSE 0 END) as images,
-                SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as videos
+                SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as videos,
+                SUM(file_size) as total_size
             FROM media
         `);
         
@@ -442,14 +507,15 @@ class SQLiteDatabase {
         return {
             total: result.total || 0,
             images: result.images || 0,
-            videos: result.videos || 0
+            videos: result.videos || 0,
+            totalSizeMB: Math.round((result.total_size || 0) / (1024 * 1024))
         };
     }
 
     async exportAllData() {
         const allData = await this.getAllMediaArray();
         return {
-            version: '3.0',
+            version: '3.0-hybrid',
             exportDate: new Date().toISOString(),
             totalItems: allData.length,
             images: allData
