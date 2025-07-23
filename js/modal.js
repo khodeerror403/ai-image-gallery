@@ -464,7 +464,14 @@ export function closeModal() {
     }
     
     // Close full-size overlay if open
-    closeFullSizeOverlay();
+    const fullsizeOverlay = document.getElementById('fullsizeOverlay');
+    if (fullsizeOverlay) {
+        fullsizeOverlay.style.display = 'none';
+        const video = fullsizeOverlay.querySelector('video');
+        if (video) {
+            video.pause();
+        }
+    }
     
     currentImageId = null;
     currentImageData = null;
@@ -505,4 +512,3 @@ export function setupModalEventListeners() {
 export function getCurrentImageData() {
     return currentImageData;
 }
-

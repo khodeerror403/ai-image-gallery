@@ -192,7 +192,7 @@ function extractVideoInfo(file) {
 }
 
 /**
- * Extract video metadata (duration, dimensions, etc.)
+ * Extract video metadata (duration, dimensions, creation date, etc.)
  */
 async function extractVideoMetadata(videoFile) {
     return new Promise((resolve) => {
@@ -205,7 +205,10 @@ async function extractVideoMetadata(videoFile) {
                 videoHeight: video.videoHeight,
                 fileSize: videoFile.size,
                 fileName: videoFile.name,
-                fileType: videoFile.type
+                fileType: videoFile.type,
+                // Add creation date from file metadata
+                fileLastModified: videoFile.lastModified ? new Date(videoFile.lastModified).toISOString() : null,
+                creationDate: videoFile.lastModified ? new Date(videoFile.lastModified).toLocaleDateString() : 'Unknown'
             };
             
             URL.revokeObjectURL(video.src);
@@ -217,7 +220,10 @@ async function extractVideoMetadata(videoFile) {
             resolve({
                 fileName: videoFile.name,
                 fileSize: videoFile.size,
-                fileType: videoFile.type
+                fileType: videoFile.type,
+                // Add creation date even on error
+                fileLastModified: videoFile.lastModified ? new Date(videoFile.lastModified).toISOString() : null,
+                creationDate: videoFile.lastModified ? new Date(videoFile.lastModified).toLocaleDateString() : 'Unknown'
             });
         });
         

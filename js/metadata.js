@@ -42,6 +42,9 @@ export function displayOrganizedMetadata(metadata, isVideo = false) {
             const sizeMB = (metadata.fileSize / (1024 * 1024)).toFixed(2);
             videoHtml += `<strong>File Size:</strong> ${sizeMB} MB<br>`;
         }
+        if (metadata.creationDate) {
+            videoHtml += `<strong>Creation Date:</strong> ${metadata.creationDate}<br>`;
+        }
         if (metadata.fileType) {
             videoHtml += `<strong>File Type:</strong> ${metadata.fileType}<br>`;
         }
