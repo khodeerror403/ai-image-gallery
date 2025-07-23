@@ -367,6 +367,16 @@ export async function deleteCurrentImage() {
     if (confirm(`Are you sure you want to delete this ${mediaType}?`)) {
         try {
             await database.deleteMedia(currentImageId);
+            
+            // Clear any video sources before closing modal to prevent "Invalid URI" errors
+            const modalVideo = document.getElementById('modalPreviewVideo');
+            if (modalVideo) {
+                modalVideo.pause();
+                modalVideo.src = '';
+                modalVideo.load(); // Force reload to clear the source
+            }
+            
+            // Close modal after clearing sources
             closeModal();
             
             // Trigger reload in main app
