@@ -358,7 +358,7 @@ export async function saveImageMetadata() {
     }
 }
 
-// Delete current item (works for both images and videos)
+// Delete current item (works for both images and videos) - WITH GALLERY CLEARING FIX
 export async function deleteCurrentImage() {
     if (!currentImageId) return;
     
@@ -366,6 +366,8 @@ export async function deleteCurrentImage() {
     
     if (confirm(`Are you sure you want to delete this ${mediaType}?`)) {
         try {
+            console.log(`🗑️ Starting deletion process for item ${currentImageId} (${mediaType})`);
+            
             // First, delete from server if serverPath exists
             if (currentImageData.serverPath) {
                 try {
@@ -384,18 +386,43 @@ export async function deleteCurrentImage() {
                 }
             }
             
-            // Delete from database
-            await database.deleteMedia(currentImageId);
+            // Delete from database with better error handling
+            console.log(`🗄️ Attempting to delete item ${currentImageId} from database...`);
+            const deleteResult = await database.deleteMedia(currentImageId);
+            console.log(`✅ Database deletion result:`, deleteResult);
             
-            // Close modal immediately to hide the content
+            // Close modal
             closeModal();
             
-            // Trigger reload in main app
-            window.dispatchEvent(new CustomEvent('mediaUpdated'));
+            // Clear the gallery completely before reload to prevent stale references
+            const gallery = document.getElementById('gallery');
+            if (gallery) {
+                // Find and clear any video elements in gallery cards
+                const videoElements = gallery.querySelectorAll('video, img[src*="data:video"]');
+                videoElements.forEach(element => {
+                    if (element.tagName === 'VIDEO') {
+                        element.pause();
+                        element.src = '';
+                        element.load();
+                    } else {
+                        element.src = '';
+                    }
+                });
+                
+                // Clear the entire gallery to remove any stale DOM references
+                gallery.innerHTML = '';
+                console.log('🧹 Gallery cleared before reload');
+            }
+            
+            // Small delay to ensure cleanup is complete before reload
+            setTimeout(() => {
+                console.log('🔄 Triggering media reload after cleanup...');
+                window.dispatchEvent(new CustomEvent('mediaUpdated'));
+            }, 300);
             
             showNotification(`${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)} deleted successfully!`, 'success');
         } catch (error) {
-            console.error('Error deleting media:', error);
+            console.error('❌ Error deleting media:', error);
             showNotification('Error deleting media: ' + error.message, 'error');
         }
     }
@@ -561,4 +588,9 @@ export function setupModalEventListeners() {
 // Get current image data (for other modules)
 export function getCurrentImageData() {
     return currentImageData;
+}
+
+// Get current image ID (for other modules)
+export function getCurrentImageId() {
+    return currentImageId;
 }
