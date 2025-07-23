@@ -31,11 +31,21 @@ async function init() {
 // Load all images and display them
 async function loadImages() {
     try {
+        console.log('🔄 Loading images from database...');
         const allImages = await database.loadAllMedia();
+        console.log(`📊 Loaded ${allImages.length} items from database`);
+        
+        // Debug: Log each item to see if any have invalid/deleted references
+        allImages.forEach((item, index) => {
+            console.log(`📋 Item ${index + 1}: ID=${item.id}, Type=${item.mediaType || 'image'}, Title="${item.title || 'Untitled'}", HasImageData=${!!item.imageData}, ServerPath=${item.serverPath || 'none'}`);
+        });
+        
         setAllImages(allImages);
+        console.log('🎨 About to display images in gallery...');
         displayImages(allImages);
+        console.log('✅ Gallery display complete');
     } catch (error) {
-        console.error('Error loading images:', error);
+        console.error('❌ Error loading images:', error);
         showNotification('Error loading media: ' + error.message, 'error');
     }
 }

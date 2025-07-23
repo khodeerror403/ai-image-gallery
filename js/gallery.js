@@ -7,6 +7,7 @@ let allImages = [];
 
 // Display images and videos in gallery
 export function displayImages(items) {
+    console.log(`🎨 displayImages called with ${items.length} items`);
     allImages = items; // Store for other modules to access
     const gallery = document.getElementById('gallery');
     const noImages = document.getElementById('noImages');
@@ -14,6 +15,7 @@ export function displayImages(items) {
     gallery.innerHTML = '';
     
     if (items.length === 0) {
+        console.log('📭 No items to display');
         noImages.style.display = 'block';
         noImages.querySelector('p').textContent = 'No media yet. Add some images or videos by dragging and dropping them above!';
         return;
@@ -21,7 +23,9 @@ export function displayImages(items) {
     
     noImages.style.display = 'none';
     
-    items.forEach(item => {
+    items.forEach((item, index) => {
+        console.log(`🖼️ Rendering item ${index + 1}: ${item.title || 'Untitled'} (${item.mediaType || 'image'})`);
+        
         const card = document.createElement('div');
         card.className = 'image-card';
         card.onclick = () => openImageModal(item);
@@ -35,10 +39,13 @@ export function displayImages(items) {
         // Use thumbnail for display (for videos, this is the generated thumbnail)
         const displayImage = item.thumbnailData || item.imageData;
         
+        console.log(`🎯 Using display image: ${displayImage ? 'Has data' : 'NO DATA'} (length: ${displayImage ? displayImage.length : 0})`);
+        
         // Create the card with conditional video controls
         card.innerHTML = `
             <div class="media-container">
-                <img src="${displayImage}" alt="${item.title || 'Untitled'}" loading="lazy" style="${getThumbnailPositionStyle(item)}">
+                <img src="${displayImage}" alt="${item.title || 'Untitled'}" loading="lazy" style="${getThumbnailPositionStyle(item)}" 
+                     onerror="console.error('❌ Image load error for item ${item.id}: ${item.title}'); this.style.display='none';">
                 ${isVideo ? `
                     <div class="video-overlay">
                         <button class="play-button" onclick="playVideo(${item.id}, event)" title="Play video">▶️</button>
@@ -64,6 +71,7 @@ export function displayImages(items) {
         `;
         
         gallery.appendChild(card);
+        console.log(`✅ Card ${index + 1} added to gallery`);
         
         // Calculate dimensions asynchronously
         if (isVideo && item.metadata && item.metadata.videoWidth) {
@@ -83,10 +91,20 @@ export function displayImages(items) {
                 if (dimensionsSpan) {
                     dimensionsSpan.textContent = dimensions;
                 }
+                console.log(`📐 Dimensions calculated for item ${item.id}: ${dimensions}`);
+            };
+            img.onerror = function() {
+                console.error(`❌ Error calculating dimensions for item ${item.id}: ${item.title}`);
+                const dimensionsSpan = card.querySelector('.dimensions-placeholder');
+                if (dimensionsSpan) {
+                    dimensionsSpan.textContent = 'Unknown';
+                }
             };
             img.src = displayImage;
         }
     });
+    
+    console.log(`🏁 Gallery rendering complete: ${items.length} cards displayed`);
 }
 
 // Play video function (called when play button is clicked)
