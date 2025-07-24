@@ -4,6 +4,7 @@
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
 import { showNotification, downloadBlob, generateSafeFilename } from './utils.js';
+import Plyr from '../node_modules/plyr/dist/plyr.min.js';
 
 let currentImageId = null;
 let currentImageData = null;
@@ -34,21 +35,57 @@ export function openImageModal(item, autoplay = false) {
         
         // Set video source and attributes
         modalPreviewVideo.src = item.serverPath ? `${item.serverPath}` : '';
-        modalPreviewVideo.loop = true; // Enable loop by default
-        modalPreviewVideo.muted = false; // Unmuted for user interaction
+        
+        // Initialize Plyr
+        const player = new Plyr(modalPreviewVideo, {
+            controls: [
+                'play-large', // The large play button in the center
+                'restart', // Restart playback
+                'rewind', // Rewind by the seek time (default 10 seconds)
+                'play', // Play/pause playback
+                'fast-forward', // Fast forward by the seek time (default 10 seconds)
+                'progress', // The progress bar and scrubber for playback and buffering
+                'current-time', // The current time of playback
+                'duration', // The full duration of the media
+                'mute', // Toggle mute
+                'volume', // Volume control
+                'captions', // Toggle captions
+                'settings', // Settings menu
+                'pip', // Picture-in-picture (Chrome only)
+                'airplay', // Airplay (Safari only)
+                'download', // Show a download button with a link to either the source or a custom URL you specify in your options
+                'fullscreen' // Toggle fullscreen
+            ],
+            settings: ['captions', 'quality', 'speed'],
+            quality: {
+                default: 576,
+                options: [4320, 2880, 2160, 1440, 1080, 720, 576, 480, 360, 240]
+            },
+            tooltips: {
+                controls: true,
+                seek: true
+            },
+            keyboard: {
+                focused: true,
+                global: true
+            }
+        });
+        
+        // Store player instance for later use
+        modalPreviewVideo.plyrInstance = player;
         
         // Try to play if autoplay requested
         if (autoplay) {
             // Add a small delay to ensure video is loaded
             setTimeout(() => {
-                modalPreviewVideo.play().catch(e => {
+                player.play().catch(e => {
                     console.log('Autoplay blocked by browser, user interaction required:', e);
                 });
             }, 100);
         }
         
         // Setup video control handlers
-        setupVideoControls(modalPreviewVideo);
+        setupVideoControls(modalPreviewVideo, player);
     } else {
         // Show image, hide video
         modalPreviewVideo.style.display = 'none';
@@ -85,44 +122,44 @@ export function openImageModal(item, autoplay = false) {
 }
 
 // Setup video control functionality
-function setupVideoControls(videoElement) {
+function setupVideoControls(videoElement, player) {
     const playPauseBtn = document.getElementById('playPauseBtn');
     const loopToggleBtn = document.getElementById('loopToggleBtn');
     const loopIndicator = document.getElementById('loopIndicator');
     
     // Update play/pause button text
     function updatePlayPauseButton() {
-        playPauseBtn.textContent = videoElement.paused ? '▶️ Play' : '⏸️ Pause';
+        playPauseBtn.textContent = player.paused ? '▶️ Play' : '⏸️ Pause';
     }
     
     // Update loop indicator
     function updateLoopIndicator() {
-        loopIndicator.textContent = videoElement.loop ? '🔄 Loop: ON' : '🔄 Loop: OFF';
-        loopToggleBtn.textContent = videoElement.loop ? '🔄 Disable Loop' : '🔄 Enable Loop';
+        loopIndicator.textContent = player.config.loop ? '🔄 Loop: ON' : '🔄 Loop: OFF';
+        loopToggleBtn.textContent = player.config.loop ? '🔄 Disable Loop' : '🔄 Enable Loop';
     }
     
     // Play/Pause functionality
     playPauseBtn.onclick = () => {
-        if (videoElement.paused) {
-            videoElement.play().catch(e => {
+        if (player.paused) {
+            player.play().catch(e => {
                 console.error('Error playing video:', e);
                 showNotification('Unable to play video. Browser may be blocking autoplay.', 'error');
             });
         } else {
-            videoElement.pause();
+            player.pause();
         }
     };
     
     // Loop toggle functionality
     loopToggleBtn.onclick = () => {
-        videoElement.loop = !videoElement.loop;
+        player.config.loop = !player.config.loop;
         updateLoopIndicator();
     };
     
     // Update buttons when video state changes
-    videoElement.addEventListener('play', updatePlayPauseButton);
-    videoElement.addEventListener('pause', updatePlayPauseButton);
-    videoElement.addEventListener('loadstart', () => {
+    player.on('play', updatePlayPauseButton);
+    player.on('pause', updatePlayPauseButton);
+    player.on('loadeddata', () => {
         updatePlayPauseButton();
         updateLoopIndicator();
     });
@@ -281,7 +318,9 @@ function openFullSizeMedia(mediaSrc, mediaType) {
             overlay.style.display = 'none';
             // Stop video if it's playing
             const video = overlay.querySelector('video');
-            if (video) {
+            if (video && video.plyrInstance) {
+                video.plyrInstance.stop();
+            } else if (video) {
                 video.pause();
             }
         };
@@ -295,7 +334,9 @@ function openFullSizeMedia(mediaSrc, mediaType) {
         e.stopPropagation();
         overlay.style.display = 'none';
         const video = overlay.querySelector('video');
-        if (video) {
+        if (video && video.plyrInstance) {
+            video.plyrInstance.stop();
+        } else if (video) {
             video.pause();
         }
     };
@@ -304,10 +345,44 @@ function openFullSizeMedia(mediaSrc, mediaType) {
     let mediaElement;
     if (mediaType === 'video') {
         mediaElement = document.createElement('video');
-        mediaElement.controls = true;
-        mediaElement.autoplay = true;
-        mediaElement.loop = true; // Enable loop for full-size video too
         mediaElement.src = mediaSrc;
+        
+        // Initialize Plyr for full-size video
+        const player = new Plyr(mediaElement, {
+            controls: [
+                'play-large',
+                'play',
+                'progress',
+                'current-time',
+                'duration',
+                'mute',
+                'volume',
+                'fullscreen'
+            ],
+            tooltips: {
+                controls: true,
+                seek: true
+            },
+            keyboard: {
+                focused: true,
+                global: true
+            },
+            fullscreen: {
+                enabled: true,
+                fallback: true,
+                iosNative: true
+            }
+        });
+        
+        // Store player instance
+        mediaElement.plyrInstance = player;
+        
+        // Start playing
+        setTimeout(() => {
+            player.play().catch(e => {
+                console.log('Autoplay blocked for full-size video:', e);
+            });
+        }, 100);
     } else {
         mediaElement = document.createElement('img');
         mediaElement.src = mediaSrc;
@@ -461,6 +536,11 @@ function performBatchCleanup(elements, elementType, description) {
     const results = { success: 0, failed: 0, skipped: 0 };
     
     elements.forEach(element => {
+        // Destroy Plyr instance if it exists
+        if (element.plyrInstance) {
+            element.plyrInstance.destroy();
+            delete element.plyrInstance;
+        }
         cleanupMediaElement(element, elementType, results);
     });
     
@@ -487,7 +567,14 @@ export async function deleteCurrentImage() {
             const modalVideo = document.getElementById('modalPreviewVideo');
             const modalImage = document.getElementById('modalPreviewImg');
             
-            if (modalVideo) cleanupMediaElement(modalVideo, 'modal-video', modalResults);
+            if (modalVideo) {
+                // Destroy Plyr instance if it exists
+                if (modalVideo.plyrInstance) {
+                    modalVideo.plyrInstance.destroy();
+                    delete modalVideo.plyrInstance;
+                }
+                cleanupMediaElement(modalVideo, 'modal-video', modalResults);
+            }
             if (modalImage) cleanupMediaElement(modalImage, 'modal-image', modalResults);
             
             if (modalResults.success > 0) {
@@ -501,7 +588,14 @@ export async function deleteCurrentImage() {
                 const overlayVideo = fullsizeOverlay.querySelector('video');
                 const overlayImage = fullsizeOverlay.querySelector('img');
                 
-                if (overlayVideo) cleanupMediaElement(overlayVideo, 'overlay-video', overlayResults);
+                if (overlayVideo) {
+                    // Destroy Plyr instance if it exists
+                    if (overlayVideo.plyrInstance) {
+                        overlayVideo.plyrInstance.destroy();
+                        delete overlayVideo.plyrInstance;
+                    }
+                    cleanupMediaElement(overlayVideo, 'overlay-video', overlayResults);
+                }
                 if (overlayImage) cleanupMediaElement(overlayImage, 'overlay-image', overlayResults);
                 
                 fullsizeOverlay.style.display = 'none';
@@ -657,6 +751,11 @@ export function closeModal() {
     // Clean up modal video
     const modalVideo = document.getElementById('modalPreviewVideo');
     if (modalVideo) {
+        // Destroy Plyr instance if it exists
+        if (modalVideo.plyrInstance) {
+            modalVideo.plyrInstance.destroy();
+            delete modalVideo.plyrInstance;
+        }
         cleanupMediaElement(modalVideo, 'modal-video-close', results);
     }
     
@@ -675,6 +774,11 @@ export function closeModal() {
         const overlayImage = fullsizeOverlay.querySelector('img');
         
         if (overlayVideo) {
+            // Destroy Plyr instance if it exists
+            if (overlayVideo.plyrInstance) {
+                overlayVideo.plyrInstance.destroy();
+                delete overlayVideo.plyrInstance;
+            }
             cleanupMediaElement(overlayVideo, 'overlay-video', results);
         }
         if (overlayImage) {
