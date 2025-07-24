@@ -13,21 +13,33 @@
         <div class="header-content">
             <img src="web_assets/favicon.svg" alt="Logo" class="header-logo">
             <h1>AI Media Gallery</h1>
+            <!-- Hamburger menu button -->
+            <div class="hamburger-menu" id="hamburgerMenu">
+                <div class="hamburger-line"></div>
+                <div class="hamburger-line"></div>
+                <div class="hamburger-line"></div>
+            </div>
         </div>
         <p>Store and organize your AI-generated images and videos</p>
     </div>
 
-    <div class="stats">
-        <span id="imageCount">0 items stored</span>
+    <!-- Hidden tools menu -->
+    <div class="tools-menu" id="toolsMenu">
+        <div class="tools-menu-header">
+            <h3>Site Tools</h3>
+            <button class="close-menu-btn" id="closeMenuBtn">×</button>
+        </div>
+        <div class="tools-menu-content">
+            <button class="tool-btn" id="exportData">Export All Data</button>
+            <button class="tool-btn" id="importData">Import Data</button>
+            <button class="tool-btn" id="clearAllData">Clear All Data</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <p class="tools-tip">💡 Tip: Export your data regularly to backup your media collection!</p>
+        </div>
     </div>
 
-    <div class="database-info">
-        <strong>📁 Database Status:</strong> Your media is stored locally in your browser's database.
-        <button class="export-btn" id="exportData">Export All Data</button>
-        <button class="export-btn" id="importData">Import Data</button>
-        <button class="export-btn" id="clearAllData" style="background-color: #e74c3c; color: white;">Clear All Data</button>
-        <input type="file" id="importFile" accept=".json" style="display: none;">
-        <br><small>💡 Tip: Export your data regularly to backup your media collection!</small>
+    <div class="stats">
+        <span id="imageCount">0 items stored</span>
     </div>
 
     <div class="search-container">

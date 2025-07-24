@@ -14,11 +14,12 @@ body {
     background: #2c3e50;
     color: white;
     padding: 20px;
-    text-align: center; /* Keep this for the paragraph */
+    text-align: center;
+    position: relative;
 }
 
 .header h1 {
-    margin: 0; /* Remove default margin */
+    margin: 0;
 }
 
 .header-content {
@@ -32,6 +33,149 @@ body {
 .header-logo {
     height: 40px;
     width: 40px;
+}
+
+/* Hamburger menu styles */
+.hamburger-menu {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 30px;
+    height: 30px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 10;
+}
+
+.hamburger-line {
+    width: 100%;
+    height: 3px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.3s linear;
+    position: relative;
+    transform-origin: center;
+}
+
+/* Tools menu styles */
+.tools-menu {
+    position: fixed;
+    top: 0;
+    right: -300px;
+    width: 280px;
+    height: 100%;
+    background: white;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+    transition: right 0.3s ease;
+    overflow-y: auto;
+}
+
+.tools-menu.active {
+    right: 0;
+}
+
+.tools-menu-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.tools-menu-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.close-menu-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s ease;
+}
+
+.close-menu-btn:hover {
+    background: #eee;
+}
+
+.tools-menu-content {
+    padding: 20px;
+}
+
+.tool-btn {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    margin-bottom: 10px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+    transition: background 0.2s ease;
+}
+
+.tool-btn:hover {
+    background: #2980b9;
+}
+
+.tool-btn:last-child {
+    margin-bottom: 0;
+    background: #e74c3c;
+}
+
+.tool-btn:last-child:hover {
+    background: #c0392b;
+}
+
+.tools-tip {
+    font-size: 12px;
+    color: #666;
+    margin-top: 15px;
+    line-height: 1.4;
+}
+
+/* Overlay for when menu is open */
+.menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: none;
+}
+
+.menu-overlay.active {
+    display: block;
+}
+
+.stats {
+    background: white;
+    margin: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .search-container {
@@ -624,6 +768,16 @@ body {
     .modal-right-panel {
         max-height: 60vh; /* Limit metadata section height */
     }
+    
+    /* Adjust hamburger menu for mobile */
+    .hamburger-menu {
+        right: 15px;
+        top: 15px;
+    }
+    
+    .tools-menu {
+        width: 250px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -634,6 +788,10 @@ body {
     .modal-media-preview video {
         max-height: 500px;
         max-width: 550px;
+    }
+    
+    .tools-menu {
+        width: 220px;
     }
 }
 
@@ -766,39 +924,6 @@ body {
     color: #666;
     margin: 50px;
     font-size: 18px;
-}
-
-.stats {
-    background: white;
-    margin: 20px;
-    padding: 15px;
-    border-radius: 10px;
-    text-align: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.database-info {
-    background: #e8f5e8;
-    border: 1px solid #4caf50;
-    margin: 20px;
-    padding: 15px;
-    border-radius: 10px;
-    font-size: 14px;
-}
-
-.export-btn {
-    background: #4caf50;
-    color: white;
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-left: 10px;
-    font-size: 12px;
-}
-
-.export-btn:hover {
-    background: #45a049;
 }
 
 #fileInput {

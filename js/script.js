@@ -21,6 +21,7 @@ async function init() {
         setupModalEventListeners();
         setupThumbnailPositionPicker();
         addThumbnailGenerationControls();
+        setupHamburgerMenu(); // Add hamburger menu functionality
         
         console.log('✅ App initialized successfully');
     } catch (error) {
@@ -56,10 +57,6 @@ function setupEventListeners() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
     const searchBox = document.getElementById('searchBox');
-    const exportData = document.getElementById('exportData');
-    const importData = document.getElementById('importData');
-    const clearAllData = document.getElementById('clearAllData');
-    const importFile = document.getElementById('importFile');
 
     // Upload area click
     uploadArea.addEventListener('click', () => fileInput.click());
@@ -93,20 +90,97 @@ function setupEventListeners() {
     // Search functionality with debounce
     const debouncedSearch = debounce(handleSearch, 300);
     searchBox.addEventListener('input', debouncedSearch);
-
-    // Export/Import buttons
-    exportData.addEventListener('click', exportAllData);
-    importData.addEventListener('click', () => importFile.click());
-    importFile.addEventListener('change', importAllData);
-    
-    // Clear all data button
-    clearAllData.addEventListener('click', clearAllDataHandler);
     
     // Listen for media updates from other modules
     window.addEventListener('mediaUpdated', async () => {
         await loadImages();
         await updateStatsDisplay();
     });
+}
+
+// Setup hamburger menu functionality
+function setupHamburgerMenu() {
+    const hamburgerMenu = document.getElementById('hamburgerMenu');
+    const toolsMenu = document.getElementById('toolsMenu');
+    const closeMenuBtn = document.getElementById('closeMenuBtn');
+    const menuOverlay = document.createElement('div');
+    menuOverlay.className = 'menu-overlay';
+    document.body.appendChild(menuOverlay);
+    
+    // Add event listeners for menu buttons
+    const exportData = document.getElementById('exportData');
+    const importData = document.getElementById('importData');
+    const clearAllData = document.getElementById('clearAllData');
+    const importFile = document.getElementById('importFile');
+    
+    // Export/Import buttons
+    exportData.addEventListener('click', exportAllData);
+    importData.addEventListener('click', () => {
+        importFile.click();
+        closeToolsMenu(); // Close menu after clicking
+    });
+    importFile.addEventListener('change', (e) => {
+        importAllData(e);
+        closeToolsMenu(); // Close menu after selecting file
+    });
+    
+    // Clear all data button
+    clearAllData.addEventListener('click', () => {
+        closeToolsMenu(); // Close menu before showing confirmation
+        setTimeout(() => clearAllDataHandler(), 100); // Small delay to ensure menu closes
+    });
+    
+    // Hamburger menu toggle
+    hamburgerMenu.addEventListener('click', toggleToolsMenu);
+    
+    // Close menu button
+    closeMenuBtn.addEventListener('click', closeToolsMenu);
+    
+    // Close menu when clicking overlay
+    menuOverlay.addEventListener('click', closeToolsMenu);
+    
+    // Close menu when pressing Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && toolsMenu.classList.contains('active')) {
+            closeToolsMenu();
+        }
+    });
+}
+
+// Toggle tools menu
+function toggleToolsMenu() {
+    const toolsMenu = document.getElementById('toolsMenu');
+    const menuOverlay = document.querySelector('.menu-overlay');
+    
+    if (toolsMenu.classList.contains('active')) {
+        closeToolsMenu();
+    } else {
+        openToolsMenu();
+    }
+}
+
+// Open tools menu
+function openToolsMenu() {
+    const toolsMenu = document.getElementById('toolsMenu');
+    const menuOverlay = document.querySelector('.menu-overlay');
+    
+    toolsMenu.classList.add('active');
+    menuOverlay.classList.add('active');
+    
+    // Prevent body scroll when menu is open
+    document.body.style.overflow = 'hidden';
+}
+
+// Close tools menu
+function closeToolsMenu() {
+    const toolsMenu = document.getElementById('toolsMenu');
+    const menuOverlay = document.querySelector('.menu-overlay');
+    
+    toolsMenu.classList.remove('active');
+    menuOverlay.classList.remove('active');
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
 }
 
 // Handle search with debouncing
