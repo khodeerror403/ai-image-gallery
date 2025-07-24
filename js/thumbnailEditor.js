@@ -207,7 +207,7 @@ async function openThumbnailEditor(itemId, event) {
         // For images, we'll use the server path
         const editImage = item.mediaType === 'video' && item.thumbnailData ? 
             item.thumbnailData : 
-            (item.serverPath ? `/${item.serverPath}` : '');
+            (item.serverPath ? `${item.serverPath}` : '');
         
         // Set up modal with image
         const thumbnailPickerImage = document.getElementById('thumbnailPickerImage');

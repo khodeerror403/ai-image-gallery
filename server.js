@@ -279,6 +279,78 @@ app.get('/api/export', (req, res) => {
     }
 });
 
+// POST /api/clear-all - Clear all data (database and files)
+app.post('/api/clear-all', (req, res) => {
+    try {
+        console.log('Starting clear all data operation...');
+        
+        // Get all media items to delete their files
+        const allMedia = db.prepare('SELECT server_path FROM media').all();
+        console.log(`Found ${allMedia.length} media items to process`);
+        
+        // Delete all physical files
+        let fileDeleteCount = 0;
+        let fileDeleteErrors = 0;
+        
+        for (const media of allMedia) {
+            if (media.server_path) {
+                try {
+                    // Check if file exists before trying to delete
+                    if (fs.existsSync(media.server_path)) {
+                        fs.unlinkSync(media.server_path);
+                        console.log(`Deleted file: ${media.server_path}`);
+                        fileDeleteCount++;
+                        
+                        // Try to remove empty directories
+                        try {
+                            const dir = path.dirname(media.server_path);
+                            if (fs.readdirSync(dir).length === 0) {
+                                fs.rmdirSync(dir);
+                                console.log(`Removed empty directory: ${dir}`);
+                            }
+                        } catch (dirError) {
+                            // Ignore directory removal errors
+                            console.log(`Could not remove directory (might not be empty): ${path.dirname(media.server_path)}`);
+                        }
+                    } else {
+                        console.log(`File not found (skipping): ${media.server_path}`);
+                    }
+                } catch (fileError) {
+                    console.error(`Failed to delete file: ${media.server_path}`, fileError);
+                    fileDeleteErrors++;
+                }
+            }
+        }
+        
+        // Clear the database
+        const stmt = db.prepare('DELETE FROM media');
+        const info = stmt.run();
+        console.log(`Cleared database: ${info.changes} records deleted`);
+        
+        // Reset auto-increment counter
+        try {
+            db.prepare('DELETE FROM sqlite_sequence WHERE name = "media"').run();
+            console.log('Reset auto-increment counter');
+        } catch (resetError) {
+            console.log('Could not reset auto-increment counter (may not exist)', resetError);
+        }
+        
+        res.json({
+            success: true,
+            message: 'All data cleared successfully',
+            filesDeleted: fileDeleteCount,
+            fileErrors: fileDeleteErrors,
+            databaseRecordsDeleted: info.changes
+        });
+    } catch (error) {
+        console.error('Clear all data error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to clear all data: ' + error.message 
+        });
+    }
+});
+
 // --- Serve the main HTML file ---
 app.get('/', (req, res) => {
     res.sendFile(path.resolve('index.html'));

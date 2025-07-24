@@ -291,6 +291,8 @@ export function extractTextFromWorkflow(workflowData) {
     }
     
     let candidateTexts = [];
+    let positivePrompts = [];
+    let negativePrompts = [];
     
     // Search through workflow nodes for text
     if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
@@ -300,7 +302,7 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type && node.type.includes('prompt')) {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 20) {
+                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
                             candidateTexts.push({ 
                                 text: value, 
                                 priority: 1, 
@@ -319,7 +321,7 @@ export function extractTextFromWorkflow(workflowData) {
                         if (Array.isArray(value) && value.length > 0) {
                             // ShowText often stores text in nested arrays
                             for (const textItem of value) {
-                                if (typeof textItem === 'string' && textItem.length > 20) {
+                                if (typeof textItem === 'string' && textItem.length > 20 && !textItem.toLowerCase().includes('embedding:')) {
                                     candidateTexts.push({ 
                                         text: textItem, 
                                         priority: 2, 
@@ -328,7 +330,7 @@ export function extractTextFromWorkflow(workflowData) {
                                     });
                                 }
                             }
-                        } else if (typeof value === 'string' && value.length > 20) {
+                        } else if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
                             candidateTexts.push({ 
                                 text: value, 
                                 priority: 2, 
@@ -344,7 +346,7 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'Text Find and Replace') {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     // Usually the "replace" text is more useful than "find"
-                    if (node.widgets_values.length > 1 && typeof node.widgets_values[1] === 'string' && node.widgets_values[1].length > 20) {
+                    if (node.widgets_values.length > 1 && typeof node.widgets_values[1] === 'string' && node.widgets_values[1].length > 20 && !node.widgets_values[1].toLowerCase().includes('embedding:')) {
                         candidateTexts.push({ 
                             text: node.widgets_values[1], 
                             priority: 3, 
@@ -359,14 +361,28 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'CLIPTextEncode') {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 10) {
-                            // Skip very short/generic text but include embeddings if they're longer
-                            if (!value.includes('embedding:') || value.length > 30) {
+                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
+                            // Check if this is likely a negative prompt (contains negative words)
+                            const isNegative = value.toLowerCase().includes('negative') || 
+                                            value.toLowerCase().includes('ugly') || 
+                                            value.toLowerCase().includes('bad') || 
+                                            value.toLowerCase().includes('worst');
+                            
+                            if (isNegative) {
+                                negativePrompts.push(value);
                                 candidateTexts.push({ 
                                     text: value, 
                                     priority: 4, 
                                     source: node.type,
-                                    label: value.includes('embedding:') ? 'Negative Prompt' : 'Positive Prompt'
+                                    label: 'Negative Prompt'
+                                });
+                            } else {
+                                positivePrompts.push(value);
+                                candidateTexts.push({ 
+                                    text: value, 
+                                    priority: 4, 
+                                    source: node.type,
+                                    label: 'Positive Prompt'
                                 });
                             }
                         }
@@ -378,7 +394,7 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'Text' || node.type === 'TextBox' || (node.type && node.type.includes('Text'))) {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 20) {
+                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
                             candidateTexts.push({ 
                                 text: value, 
                                 priority: 5, 
@@ -412,28 +428,47 @@ export function extractTextFromWorkflow(workflowData) {
         return b.text.length - a.text.length; // Longer text first within same priority
     });
     
-    // Build the combined prompt text
+    // Build the combined prompt text with clear separation
     let combinedPrompt = '';
     
-    if (uniqueTexts.length === 1) {
+    if (positivePrompts.length > 0 || negativePrompts.length > 0) {
+        // If we have specifically identified positive/negative prompts, use those
+        if (positivePrompts.length > 0) {
+            combinedPrompt += 'POSITIVE PROMPT:\n';
+            combinedPrompt += cleanPromptText(positivePrompts[0]) + '\n\n';
+        }
+        
+        if (negativePrompts.length > 0) {
+            combinedPrompt += 'NEGATIVE PROMPT:\n';
+            combinedPrompt += cleanPromptText(negativePrompts[0]) + '\n\n';
+        }
+        
+        // Add any additional prompts
+        const additionalPrompts = uniqueTexts.filter(t => 
+            !positivePrompts.includes(t.text) && !negativePrompts.includes(t.text)
+        );
+        
+        if (additionalPrompts.length > 0) {
+            combinedPrompt += 'ADDITIONAL PROMPTS:\n';
+            additionalPrompts.forEach((prompt, index) => {
+                combinedPrompt += `${index + 1}. ${prompt.label} (${prompt.source}):\n`;
+                combinedPrompt += cleanPromptText(prompt.text) + '\n\n';
+            });
+        }
+    } else if (uniqueTexts.length === 1) {
         // Single prompt - just use it directly
         combinedPrompt = cleanPromptText(uniqueTexts[0].text);
     } else if (uniqueTexts.length > 1) {
         // Multiple prompts - organize them with labels
-        combinedPrompt = '=== MULTIPLE PROMPTS FOUND ===\n\n';
-        
         uniqueTexts.forEach((prompt, index) => {
             combinedPrompt += `${index + 1}. ${prompt.label} (${prompt.source}):\n`;
             combinedPrompt += cleanPromptText(prompt.text) + '\n\n';
         });
-        
-        combinedPrompt += '=== END OF PROMPTS ===\n\n';
-        combinedPrompt += `PRIMARY PROMPT:\n${cleanPromptText(uniqueTexts[0].text)}`;
     }
     
     // Populate the textarea if we found text
     if (combinedPrompt) {
-        promptTextarea.value = combinedPrompt;
-        console.log(`Extracted ${uniqueTexts.length} unique prompts from workflow`);
+        promptTextarea.value = combinedPrompt.trim();
+        console.log(`Extracted ${uniqueTexts.length} unique prompts from workflow (${positivePrompts.length} positive, ${negativePrompts.length} negative)`);
     }
 }

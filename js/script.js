@@ -8,6 +8,7 @@ import { setupModalEventListeners } from './modal.js';
 import { setupThumbnailPositionPicker } from './thumbnailEditor.js';
 import { addThumbnailGenerationControls } from './thumbnailGenerator.js';
 import { debounce, showNotification, downloadBlob, generateSafeFilename } from './utils.js';
+import { updateAllPrompts } from './updatePrompts.js';
 
 // Initialize the app
 async function init() {
@@ -57,6 +58,7 @@ function setupEventListeners() {
     const searchBox = document.getElementById('searchBox');
     const exportData = document.getElementById('exportData');
     const importData = document.getElementById('importData');
+    const clearAllData = document.getElementById('clearAllData');
     const importFile = document.getElementById('importFile');
 
     // Upload area click
@@ -96,6 +98,9 @@ function setupEventListeners() {
     exportData.addEventListener('click', exportAllData);
     importData.addEventListener('click', () => importFile.click());
     importFile.addEventListener('change', importAllData);
+    
+    // Clear all data button
+    clearAllData.addEventListener('click', clearAllDataHandler);
     
     // Listen for media updates from other modules
     window.addEventListener('mediaUpdated', async () => {
@@ -160,6 +165,72 @@ async function importAllData(e) {
     
     // Reset file input
     e.target.value = '';
+}
+
+// Clear all data handler
+async function clearAllDataHandler() {
+    if (confirm('⚠️ WARNING: This will permanently delete ALL images, videos, and database records!\n\nAre you sure you want to proceed?')) {
+        const clearAllDataBtn = document.getElementById('clearAllData');
+        clearAllDataBtn.disabled = true;
+        clearAllDataBtn.textContent = 'Clearing...';
+        
+        try {
+            // Make API call to clear all data
+            const response = await fetch('/api/clear-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification(`✅ Cleared all data successfully!\n- ${result.databaseRecordsDeleted} database records deleted\n- ${result.filesDeleted} files deleted\n- ${result.fileErrors} file errors`, 'success');
+                // Reload images to show empty gallery
+                await loadImages();
+                await updateStatsDisplay();
+            } else {
+                showNotification(`❌ Failed to clear data: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Clear all data failed:', error);
+            showNotification('Error during clear all data: ' + error.message, 'error');
+        } finally {
+            clearAllDataBtn.disabled = false;
+            clearAllDataBtn.textContent = 'Clear All Data';
+        }
+    }
+}
+
+// Update all prompts handler
+async function updateAllPromptsHandler() {
+    if (confirm('Update all prompts in the database? This may take a while.')) {
+        const updatePromptsBtn = document.getElementById('updatePrompts');
+        updatePromptsBtn.disabled = true;
+        updatePromptsBtn.textContent = 'Updating...';
+        
+        try {
+            const results = await updateAllPrompts();
+            
+            if (results.processed > 0) {
+                showNotification(`Updated ${results.processed} prompts successfully! (${results.skipped} unchanged, ${results.errors} errors)`, 'success');
+                // Reload images to show updated prompts
+                await loadImages();
+                await updateStatsDisplay();
+            } else if (results.skipped > 0 && results.errors === 0) {
+                showNotification(`All prompts are already up to date (${results.skipped} items checked)`, 'info');
+            } else if (results.errors > 0) {
+                showNotification(`Prompt update failed for ${results.errors} items`, 'error');
+            }
+        } catch (error) {
+            console.error('Prompt update failed:', error);
+            showNotification('Error during prompt update: ' + error.message, 'error');
+        } finally {
+            updatePromptsBtn.disabled = false;
+            updatePromptsBtn.textContent = 'Update Prompts';
+        }
+    }
 }
 
 // Start the app when DOM is loaded

@@ -45,7 +45,7 @@ export function displayImages(items) {
         // Use server path for display, with thumbnail for videos
         const displayImage = item.mediaType === 'video' && item.thumbnailData ? 
             item.thumbnailData : 
-            (item.serverPath ? `/${item.serverPath}` : '');
+            (item.serverPath ? `${item.serverPath}` : '');
         
         console.log(`🎯 Using display image: ${displayImage ? 'Has data' : 'NO DATA'} (length: ${displayImage ? displayImage.length : 0})`);
         

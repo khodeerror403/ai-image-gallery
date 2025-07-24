@@ -1,6 +1,8 @@
 // comfyuiParser.js - Version 1.0
 // Parser for extracting metadata from ComfyUI and AUTOMATIC1111 images
 
+import { cleanPromptText } from '../utils.js';
+
 /**
  * Extract ComfyUI-specific information from PNG text chunks
  * Handles workflow and prompt data from ComfyUI
@@ -61,7 +63,10 @@ export function extractComfyUIInfo(chunks) {
                     if (node.type === 'CLIPTextEncode' && node.widgets_values && node.widgets_values.length > 0) {
                         const text = node.widgets_values[0];
                         if (typeof text === 'string' && text.length > 10 && !aiInfo.prompt) {
-                            aiInfo.prompt = text;
+                            const cleanedText = cleanPromptText(text);
+                            if (cleanedText.length > 1) {
+                                aiInfo.prompt = cleanedText;
+                            }
                             break;
                         }
                     }
@@ -72,7 +77,10 @@ export function extractComfyUIInfo(chunks) {
                     const node = workflow[nodeId];
                     if (node.inputs && node.inputs.text && typeof node.inputs.text === 'string') {
                         if (node.inputs.text.length > 10 && !aiInfo.prompt) {
-                            aiInfo.prompt = node.inputs.text;
+                            const cleanedText = cleanPromptText(node.inputs.text);
+                            if (cleanedText.length > 1) {
+                                aiInfo.prompt = cleanedText;
+                            }
                             break;
                         }
                     }
@@ -91,7 +99,10 @@ export function extractComfyUIInfo(chunks) {
                 // Extract useful info from prompt data
                 for (const key in promptData) {
                     if (typeof promptData[key] === 'string' && promptData[key].length > 10 && !aiInfo.prompt) {
-                        aiInfo.prompt = promptData[key];
+                        const cleanedText = cleanPromptText(promptData[key]);
+                        if (cleanedText.length > 1) {
+                            aiInfo.prompt = cleanedText;
+                        }
                         break;
                     }
                 }
@@ -99,14 +110,20 @@ export function extractComfyUIInfo(chunks) {
         } catch (e) {
             // If not JSON, treat as plain text
             if (chunks.prompt.length > 5 && !aiInfo.prompt) {
-                aiInfo.prompt = chunks.prompt;
+                const cleanedText = cleanPromptText(chunks.prompt);
+                if (cleanedText.length > 1) {
+                    aiInfo.prompt = cleanedText;
+                }
             }
         }
     }
 
     // Check for parameters (AUTOMATIC1111 style)
     if (chunks.parameters) {
-        aiInfo.prompt = aiInfo.prompt || chunks.parameters;
+        const cleanedParameters = cleanPromptText(chunks.parameters);
+        if (cleanedParameters.length > 1) {
+            aiInfo.prompt = aiInfo.prompt || cleanedParameters;
+        }
         aiInfo.notes += '🤖 A1111 Parameters detected\n';
         aiInfo.tags = 'AUTOMATIC1111,AI-Generated';
     }
