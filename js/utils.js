@@ -46,10 +46,6 @@ export function cleanPromptText(text) {
     // Remove common prefixes/suffixes that might be added by processing
     let cleaned = text.replace(/^(aidma-niji, niji, anime style, sharp image\s*)/i, '');
     
-    // Remove embedding references and other irrelevant content
-    // Remove embedding references like "embedding:BeyondSDXLv3" but be more conservative
-    cleaned = cleaned.replace(/\bembedding:[\w\d_]+/gi, '');
-    
     // Remove other common irrelevant patterns, but be more specific
     cleaned = cleaned.replace(/\b(weight|strength|scale|ratio):\s*[\d.]+(?:,?)/gi, '');
     cleaned = cleaned.replace(/\b(steps|cfg|seed):\s*\d+(?:,?)/gi, '');

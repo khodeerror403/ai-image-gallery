@@ -59,16 +59,30 @@ export function extractComfyUIInfo(chunks) {
             
             // Try to extract prompt from workflow nodes (new format)
             if (workflow.nodes && Array.isArray(workflow.nodes)) {
+                // Collect all text from CLIPTextEncode nodes
+                let clipTexts = [];
                 for (const node of workflow.nodes) {
                     if (node.type === 'CLIPTextEncode' && node.widgets_values && node.widgets_values.length > 0) {
                         const text = node.widgets_values[0];
-                        if (typeof text === 'string' && text.length > 10 && !aiInfo.prompt) {
-                            const cleanedText = cleanPromptText(text);
-                            if (cleanedText.length > 1) {
-                                aiInfo.prompt = cleanedText;
-                            }
-                            break;
+                        if (typeof text === 'string' && text.length > 5) { // Reduced minimum length
+                            clipTexts.push(text);
                         }
+                    }
+                }
+                
+                // If we have multiple texts, combine them
+                if (clipTexts.length > 0) {
+                    // Use the longest text as the main prompt
+                    const longestText = clipTexts.reduce((a, b) => a.length > b.length ? a : b);
+                    const cleanedText = cleanPromptText(longestText);
+                    if (cleanedText.length > 1) {
+                        aiInfo.prompt = cleanedText;
+                    }
+                } else if (clipTexts.length > 0) {
+                    // Fallback to first text
+                    const cleanedText = cleanPromptText(clipTexts[0]);
+                    if (cleanedText.length > 1) {
+                        aiInfo.prompt = cleanedText;
                     }
                 }
             } else {

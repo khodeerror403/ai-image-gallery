@@ -293,6 +293,7 @@ export function extractTextFromWorkflow(workflowData) {
     let candidateTexts = [];
     let positivePrompts = [];
     let negativePrompts = [];
+    let embeddings = []; // New array to store embedding references
     
     // Search through workflow nodes for text
     if (workflowData.nodes && Array.isArray(workflowData.nodes)) {
@@ -302,13 +303,23 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type && node.type.includes('prompt')) {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
-                            candidateTexts.push({ 
-                                text: value, 
-                                priority: 1, 
-                                source: node.type,
-                                label: 'Custom Prompt'
-                            });
+                        if (typeof value === 'string' && value.length > 5) { // Reduced minimum length
+                            // Check if this is an embedding
+                            if (value.toLowerCase().includes('embedding:')) {
+                                embeddings.push({
+                                    text: value,
+                                    priority: 1,
+                                    source: node.type,
+                                    label: 'Embedding Reference'
+                                });
+                            } else if (value.length > 20) { // Only apply length filter to non-embeddings
+                                candidateTexts.push({ 
+                                    text: value, 
+                                    priority: 1, 
+                                    source: node.type,
+                                    label: 'Custom Prompt'
+                                });
+                            }
                         }
                     }
                 }
@@ -321,22 +332,42 @@ export function extractTextFromWorkflow(workflowData) {
                         if (Array.isArray(value) && value.length > 0) {
                             // ShowText often stores text in nested arrays
                             for (const textItem of value) {
-                                if (typeof textItem === 'string' && textItem.length > 20 && !textItem.toLowerCase().includes('embedding:')) {
-                                    candidateTexts.push({ 
-                                        text: textItem, 
-                                        priority: 2, 
-                                        source: node.type,
-                                        label: 'Processed Text'
-                                    });
+                                if (typeof textItem === 'string' && textItem.length > 5) { // Reduced minimum length
+                                    // Check if this is an embedding
+                                    if (textItem.toLowerCase().includes('embedding:')) {
+                                        embeddings.push({
+                                            text: textItem,
+                                            priority: 2,
+                                            source: node.type,
+                                            label: 'Embedding Reference'
+                                        });
+                                    } else if (textItem.length > 20) { // Only apply length filter to non-embeddings
+                                        candidateTexts.push({ 
+                                            text: textItem, 
+                                            priority: 2, 
+                                            source: node.type,
+                                            label: 'Processed Text'
+                                        });
+                                    }
                                 }
                             }
-                        } else if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
-                            candidateTexts.push({ 
-                                text: value, 
-                                priority: 2, 
-                                source: node.type,
-                                label: 'Processed Text'
-                            });
+                        } else if (typeof value === 'string' && value.length > 5) { // Reduced minimum length
+                            // Check if this is an embedding
+                            if (value.toLowerCase().includes('embedding:')) {
+                                embeddings.push({
+                                    text: value,
+                                    priority: 2,
+                                    source: node.type,
+                                    label: 'Embedding Reference'
+                                });
+                            } else if (value.length > 20) { // Only apply length filter to non-embeddings
+                                candidateTexts.push({ 
+                                    text: value, 
+                                    priority: 2, 
+                                    source: node.type,
+                                    label: 'Processed Text'
+                                });
+                            }
                         }
                     }
                 }
@@ -346,13 +377,23 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'Text Find and Replace') {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     // Usually the "replace" text is more useful than "find"
-                    if (node.widgets_values.length > 1 && typeof node.widgets_values[1] === 'string' && node.widgets_values[1].length > 20 && !node.widgets_values[1].toLowerCase().includes('embedding:')) {
-                        candidateTexts.push({ 
-                            text: node.widgets_values[1], 
-                            priority: 3, 
-                            source: node.type,
-                            label: 'Replace Text'
-                        });
+                    if (node.widgets_values.length > 1 && typeof node.widgets_values[1] === 'string' && node.widgets_values[1].length > 5) { // Reduced minimum length
+                        // Check if this is an embedding
+                        if (node.widgets_values[1].toLowerCase().includes('embedding:')) {
+                            embeddings.push({
+                                text: node.widgets_values[1],
+                                priority: 3,
+                                source: node.type,
+                                label: 'Embedding Reference'
+                            });
+                        } else if (node.widgets_values[1].length > 20) { // Only apply length filter to non-embeddings
+                            candidateTexts.push({ 
+                                text: node.widgets_values[1], 
+                                priority: 3, 
+                                source: node.type,
+                                label: 'Replace Text'
+                            });
+                        }
                     }
                 }
             }
@@ -361,29 +402,39 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'CLIPTextEncode') {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
-                            // Check if this is likely a negative prompt (contains negative words)
-                            const isNegative = value.toLowerCase().includes('negative') || 
-                                            value.toLowerCase().includes('ugly') || 
-                                            value.toLowerCase().includes('bad') || 
-                                            value.toLowerCase().includes('worst');
-                            
-                            if (isNegative) {
-                                negativePrompts.push(value);
-                                candidateTexts.push({ 
-                                    text: value, 
-                                    priority: 4, 
+                        if (typeof value === 'string' && value.length > 5) { // Reduced minimum length
+                            // Check if this is an embedding
+                            if (value.toLowerCase().includes('embedding:')) {
+                                embeddings.push({
+                                    text: value,
+                                    priority: 4,
                                     source: node.type,
-                                    label: 'Negative Prompt'
+                                    label: 'Embedding Reference'
                                 });
-                            } else {
-                                positivePrompts.push(value);
-                                candidateTexts.push({ 
-                                    text: value, 
-                                    priority: 4, 
-                                    source: node.type,
-                                    label: 'Positive Prompt'
-                                });
+                            } else if (value.length > 20) { // Only apply length filter to non-embeddings
+                                // Check if this is likely a negative prompt (contains negative words)
+                                const isNegative = value.toLowerCase().includes('negative') || 
+                                                value.toLowerCase().includes('ugly') || 
+                                                value.toLowerCase().includes('bad') || 
+                                                value.toLowerCase().includes('worst');
+                                
+                                if (isNegative) {
+                                    negativePrompts.push(value);
+                                    candidateTexts.push({ 
+                                        text: value, 
+                                        priority: 4, 
+                                        source: node.type,
+                                        label: 'Negative Prompt'
+                                    });
+                                } else {
+                                    positivePrompts.push(value);
+                                    candidateTexts.push({ 
+                                        text: value, 
+                                        priority: 4, 
+                                        source: node.type,
+                                        label: 'Positive Prompt'
+                                    });
+                                }
                             }
                         }
                     }
@@ -394,13 +445,23 @@ export function extractTextFromWorkflow(workflowData) {
             if (node.type === 'Text' || node.type === 'TextBox' || (node.type && node.type.includes('Text'))) {
                 if (node.widgets_values && Array.isArray(node.widgets_values)) {
                     for (const value of node.widgets_values) {
-                        if (typeof value === 'string' && value.length > 20 && !value.toLowerCase().includes('embedding:')) {
-                            candidateTexts.push({ 
-                                text: value, 
-                                priority: 5, 
-                                source: node.type,
-                                label: 'Text Node'
-                            });
+                        if (typeof value === 'string' && value.length > 5) { // Reduced minimum length
+                            // Check if this is an embedding
+                            if (value.toLowerCase().includes('embedding:')) {
+                                embeddings.push({
+                                    text: value,
+                                    priority: 5,
+                                    source: node.type,
+                                    label: 'Embedding Reference'
+                                });
+                            } else if (value.length > 20) { // Only apply length filter to non-embeddings
+                                candidateTexts.push({ 
+                                    text: value, 
+                                    priority: 5, 
+                                    source: node.type,
+                                    label: 'Text Node'
+                                });
+                            }
                         }
                     }
                 }
@@ -420,6 +481,15 @@ export function extractTextFromWorkflow(workflowData) {
         }
     }
     
+    // Remove duplicate embeddings
+    const uniqueEmbeddings = [];
+    for (const embedding of embeddings) {
+        const isDuplicate = uniqueEmbeddings.some(existing => existing.text === embedding.text);
+        if (!isDuplicate) {
+            uniqueEmbeddings.push(embedding);
+        }
+    }
+    
     // Sort by priority (lower number = higher priority) and then by length
     uniqueTexts.sort((a, b) => {
         if (a.priority !== b.priority) {
@@ -428,8 +498,20 @@ export function extractTextFromWorkflow(workflowData) {
         return b.text.length - a.text.length; // Longer text first within same priority
     });
     
+    // Sort embeddings by priority
+    uniqueEmbeddings.sort((a, b) => a.priority - b.priority);
+    
     // Build the combined prompt text with clear separation
     let combinedPrompt = '';
+    
+    // Add embeddings section if we found any
+    if (uniqueEmbeddings.length > 0) {
+        combinedPrompt += 'EMBEDDINGS:\n';
+        uniqueEmbeddings.forEach((embedding, index) => {
+            combinedPrompt += `${index + 1}. ${embedding.label} (${embedding.source}):\n`;
+            combinedPrompt += embedding.text + '\n\n';
+        });
+    }
     
     if (positivePrompts.length > 0 || negativePrompts.length > 0) {
         // If we have specifically identified positive/negative prompts, use those
@@ -457,9 +539,11 @@ export function extractTextFromWorkflow(workflowData) {
         }
     } else if (uniqueTexts.length === 1) {
         // Single prompt - just use it directly
-        combinedPrompt = cleanPromptText(uniqueTexts[0].text);
+        combinedPrompt += 'MAIN PROMPT:\n';
+        combinedPrompt += cleanPromptText(uniqueTexts[0].text) + '\n\n';
     } else if (uniqueTexts.length > 1) {
         // Multiple prompts - organize them with labels
+        combinedPrompt += 'PROMPTS:\n';
         uniqueTexts.forEach((prompt, index) => {
             combinedPrompt += `${index + 1}. ${prompt.label} (${prompt.source}):\n`;
             combinedPrompt += cleanPromptText(prompt.text) + '\n\n';
@@ -469,6 +553,6 @@ export function extractTextFromWorkflow(workflowData) {
     // Populate the textarea if we found text
     if (combinedPrompt) {
         promptTextarea.value = combinedPrompt.trim();
-        console.log(`Extracted ${uniqueTexts.length} unique prompts from workflow (${positivePrompts.length} positive, ${negativePrompts.length} negative)`);
+        console.log(`Extracted ${uniqueTexts.length} unique prompts and ${uniqueEmbeddings.length} embeddings from workflow (${positivePrompts.length} positive, ${negativePrompts.length} negative)`);
     }
 }

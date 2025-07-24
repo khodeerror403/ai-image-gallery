@@ -427,14 +427,21 @@ function extractComfyUIInfo(chunks) {
             
             // Try to extract prompt from workflow nodes (new format)
             if (workflow.nodes && Array.isArray(workflow.nodes)) {
+                // Collect all text from CLIPTextEncode nodes
+                let clipTexts = [];
                 for (const node of workflow.nodes) {
                     if (node.type === 'CLIPTextEncode' && node.widgets_values && node.widgets_values.length > 0) {
                         const text = node.widgets_values[0];
-                        if (typeof text === 'string' && text.length > 10 && !aiInfo.prompt) {
-                            aiInfo.prompt = text;
-                            break;
+                        if (typeof text === 'string' && text.length > 5) { // Reduced minimum length
+                            clipTexts.push(text);
                         }
                     }
+                }
+                
+                // If we have multiple texts, use the longest one
+                if (clipTexts.length > 0) {
+                    const longestText = clipTexts.reduce((a, b) => a.length > b.length ? a : b);
+                    aiInfo.prompt = longestText;
                 }
             } else {
                 // Try to extract prompt from workflow nodes (old format)
