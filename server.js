@@ -30,6 +30,18 @@ function transformMediaRow(row) {
         delete newRow.thumbnailPositionY;
     }
     
+    // Special handling for metadata JSON
+    if (row.metadata_json) {
+        try {
+            newRow.metadata = JSON.parse(row.metadata_json);
+            delete newRow.metadataJson;
+        } catch (e) {
+            // If parsing fails, keep the raw string
+            newRow.metadata = row.metadata_json;
+            delete newRow.metadataJson;
+        }
+    }
+    
     return newRow;
 }
 

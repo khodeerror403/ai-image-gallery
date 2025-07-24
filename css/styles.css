@@ -450,6 +450,7 @@ body {
     border-top: 1px solid #eee;
     margin-top: 15px;
     display: flex;
+    justify-content: center;
     gap: 10px;
     flex-wrap: wrap;
 }
