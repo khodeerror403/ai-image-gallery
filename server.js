@@ -161,11 +161,19 @@ app.get('/api/media/:id', (req, res) => {
 app.post('/api/media', (req, res) => {
     try {
         const { title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition, metadata, serverPath, fileSize } = req.body;
+        
+        // Handle thumbnailPosition - provide defaults if not present
+        const thumbX = thumbnailPosition && typeof thumbnailPosition.x !== 'undefined' ? thumbnailPosition.x : 50;
+        const thumbY = thumbnailPosition && typeof thumbnailPosition.y !== 'undefined' ? thumbnailPosition.y : 25;
+        
+        // Handle dateAdded - provide default if not present
+        const dateAddedValue = dateAdded || new Date().toISOString();
+        
         const stmt = db.prepare(`
             INSERT INTO media (title, prompt, model, tags, notes, date_added, media_type, thumbnail_data, thumbnail_position_x, thumbnail_position_y, metadata_json, server_path, file_size)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const info = stmt.run(title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition.x, thumbnailPosition.y, JSON.stringify(metadata), serverPath, fileSize);
+        const info = stmt.run(title, prompt, model, tags, notes, dateAddedValue, mediaType, thumbnailData, thumbX, thumbY, JSON.stringify(metadata), serverPath, fileSize);
         
         const newMedia = db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid);
         res.status(201).json(newMedia);

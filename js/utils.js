@@ -104,14 +104,81 @@ export function downloadBlob(blob, filename) {
 
 // Show user notification
 export function showNotification(message, type = 'info') {
-    // For now, use alert - could be enhanced with toast notifications later
-    if (type === 'error') {
-        alert('❌ ' + message);
-    } else if (type === 'success') {
-        alert('✅ ' + message);
-    } else {
-        alert('💡 ' + message);
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Add styles
+    const styles = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 5px;
+        color: white;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        max-width: 400px;
+        word-wrap: break-word;
+        animation: slideIn 0.3s ease, fadeOut 0.5s ease 2.5s forwards;
+    `;
+    
+    // Add type-specific styles
+    let typeStyles = '';
+    switch (type) {
+        case 'error':
+            typeStyles = 'background-color: #e74c3c;'; // Red for errors
+            break;
+        case 'success':
+            typeStyles = 'background-color: #27ae60;'; // Green for success
+            break;
+        default:
+            typeStyles = 'background-color: #3498db;'; // Blue for info
     }
+    
+    notification.style.cssText = styles + typeStyles;
+    
+    // Add animation styles to document head
+    if (!document.getElementById('notification-styles')) {
+        const style = document.createElement('style');
+        style.id = 'notification-styles';
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(100%);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Add to document
+    document.body.appendChild(notification);
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000); // 3 seconds total (2.5s delay + 0.5s fade out)
 }
 
 // Validate file type

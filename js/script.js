@@ -127,7 +127,9 @@ function setupHamburgerMenu() {
     // Clear all data button
     clearAllData.addEventListener('click', () => {
         closeToolsMenu(); // Close menu before showing confirmation
-        setTimeout(() => clearAllDataHandler(), 100); // Small delay to ensure menu closes
+        setTimeout(() => {
+            clearAllDataHandler();
+        }, 100); // Small delay to ensure menu closes
     });
     
     // Hamburger menu toggle

@@ -139,11 +139,11 @@ body {
 
 .tool-btn:last-child {
     margin-bottom: 0;
-    background: #e74c3c;
+    background: #e74c3c !important;
 }
 
 .tool-btn:last-child:hover {
-    background: #c0392b;
+    background: #c0392b !important;
 }
 
 .tools-tip {
