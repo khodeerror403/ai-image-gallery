@@ -75,8 +75,7 @@ export const database = {
     },
 
     async getMediaById(id) {
-        const media = await apiRequest(`/api/media`);
-        return media.find(item => item.id == id) || null;
+        return await apiRequest(`/api/media/${id}`);
     },
 
     async getAllMediaArray() {

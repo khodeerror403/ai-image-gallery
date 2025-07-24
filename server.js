@@ -15,6 +15,24 @@ function toCamelCase(s) {
     });
 }
 
+function transformMediaRow(row) {
+    const newRow = {};
+    for (const key in row) newRow[toCamelCase(key)] = row[key];
+    
+    // Special handling for thumbnail position
+    if (row.thumbnail_position_x !== undefined && row.thumbnail_position_y !== undefined) {
+        newRow.thumbnailPosition = {
+            x: row.thumbnail_position_x,
+            y: row.thumbnail_position_y
+        };
+        // Remove the individual position properties
+        delete newRow.thumbnailPositionX;
+        delete newRow.thumbnailPositionY;
+    }
+    
+    return newRow;
+}
+
 // Middleware
 app.use(express.json({ limit: '50mb' })); // For handling large base64 thumbnails
 app.use(express.static('.')); // Serve static files from the root directory
@@ -101,12 +119,26 @@ app.get('/api/media', (req, res) => {
             rows = stmt.all();
         }
 
-        const media = rows.map(row => {
-            const newRow = {};
-            for (const key in row) newRow[toCamelCase(key)] = row[key];
-            return newRow;
-        });
+        const media = rows.map(row => transformMediaRow(row));
 
+        res.json(media);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch media.' });
+    }
+});
+
+// GET /api/media/:id - Get single media item
+app.get('/api/media/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const stmt = db.prepare('SELECT * FROM media WHERE id = ?');
+        const row = stmt.get(id);
+        
+        if (!row) {
+            return res.status(404).json({ error: 'Media not found.' });
+        }
+        
+        const media = transformMediaRow(row);
         res.json(media);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch media.' });
