@@ -161,10 +161,20 @@ export async function generateThumbnailsForExistingImages(forceRegenerate = fals
             try {
                 console.log(`Generating thumbnail for image ${item.id} (${i + 1}/${allMedia.length})...`);
                 
+                // Skip if no server path
+                if (!item.serverPath) {
+                    console.log(`Image ${item.id} has no server path, skipping...`);
+                    skipped++;
+                    continue;
+                }
+                
+                // Load image from server path
+                const imageUrl = `/${item.serverPath}`;
+                
                 // Use position if available, otherwise TOP-ALIGNED default (y=25)
                 const position = item.thumbnailPosition || { x: 50, y: 25 }; // TOP-ALIGNED
                 const thumbnailData = await generateThumbnailWithPosition(
-                    item.imageData, 
+                    imageUrl, 
                     position, 
                     600, 
                     400, 
@@ -238,8 +248,16 @@ export async function regenerateThumbnailForItem(itemId, newPosition) {
         
         console.log(`Regenerating thumbnail for item ${itemId} with position:`, newPosition);
         
+        // Skip if no server path
+        if (!item.serverPath) {
+            throw new Error('Item has no server path');
+        }
+        
+        // Load image from server path
+        const imageUrl = `/${item.serverPath}`;
+        
         const thumbnailData = await generateThumbnailWithPosition(
-            item.imageData,
+            imageUrl,
             newPosition,
             600,
             400,

@@ -1,287 +1,247 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const cors = require('cors');
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import Database from 'better-sqlite3';
 
 const app = express();
-const PORT = process.env.PORT || 3015;
+const port = 3015;
+const db = new Database('gallery.db');
 
-// Enable CORS and JSON parsing
-app.use(cors());
-app.use(express.json());
-app.use(express.static('.'));
+// --- Utility Functions ---
+function toCamelCase(s) {
+    return s.replace(/([-_][a-z])/ig, ($1) => {
+        return $1.toUpperCase().replace('-', '').replace('_', '');
+    });
+}
 
-// Configure multer for file uploads with date-based organization and media type separation
+// Middleware
+app.use(express.json({ limit: '50mb' })); // For handling large base64 thumbnails
+app.use(express.static('.')); // Serve static files from the root directory
+
+// --- Database Schema Setup ---
+function setupDatabase() {
+    const schema = `
+        CREATE TABLE IF NOT EXISTS media (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            prompt TEXT,
+            model TEXT,
+            tags TEXT,
+            notes TEXT,
+            date_added TEXT NOT NULL,
+            media_type TEXT DEFAULT 'image',
+            thumbnail_data TEXT,
+            thumbnail_position_x INTEGER DEFAULT 50,
+            thumbnail_position_y INTEGER DEFAULT 25,
+            metadata_json TEXT,
+            server_path TEXT UNIQUE,
+            file_size INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_server_path ON media(server_path);
+    `;
+    db.exec(schema);
+    console.log('✅ Database schema is ready.');
+}
+
+// --- File Upload Configuration (Multer) ---
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    // Determine if this is a video or image file
-    const isVideo = file.mimetype.startsWith('video/');
-    const mediaFolder = isVideo ? 'videos' : 'images';
-    
-    // Create date-based folder (YYYY-MM-DD) using server's local timezone
-    const localDate = new Intl.DateTimeFormat('en-CA', {
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(new Date());
-    
-    const dateFolder = localDate; // This will be in YYYY-MM-DD format
-    
-    console.log(`📅 Creating folder for local date: ${dateFolder}`);
-    console.log(`📅 Server timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-    
-    const uploadPath = path.join(__dirname, mediaFolder, dateFolder);
-    
-    // Create directory if it doesn't exist
-    fs.mkdirSync(uploadPath, { recursive: true });
-    
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    // Use timestamp + original filename to avoid conflicts
-    const timestamp = Date.now();
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    cb(null, `${timestamp}_${sanitizedName}`);
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit (increased for videos)
-  },
-  fileFilter: function (req, file, cb) {
-    // Allow both image and video files
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image and video files are allowed!'), false);
+    destination: (req, file, cb) => {
+        const dir = file.mimetype.startsWith('video') ? 'videos' : 'images';
+        const date = new Date().toISOString().slice(0, 10);
+        const dest = path.join(dir, date);
+        fs.mkdirSync(dest, { recursive: true });
+        cb(null, dest);
+    },
+    filename: (req, file, cb) => {
+        const uniquePrefix = Date.now();
+        const safeOriginalName = file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        cb(null, `${uniquePrefix}_${safeOriginalName}`);
     }
-  }
 });
+const upload = multer({ storage });
 
-// Serve the main HTML file
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+// --- API Endpoints ---
 
-// Handle single file upload (supports both images and videos)
+// POST /upload - Handles file uploads
 app.post('/upload', upload.single('image'), (req, res) => {
-  try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+        return res.status(400).json({ success: false, error: 'No file uploaded.' });
     }
-
-    const fileInfo = {
-      success: true,
-      filename: req.file.filename,
-      originalName: req.file.originalname,
-      size: req.file.size,
-      path: req.file.path,
-      relativePath: path.relative(__dirname, req.file.path),
-      uploadDate: new Date().toISOString(),
-      mediaType: req.file.mimetype.startsWith('video/') ? 'video' : 'image'
-    };
-
-    const mediaType = fileInfo.mediaType === 'video' ? 'Video' : 'Image';
-    const folder = fileInfo.mediaType === 'video' ? 'videos' : 'images';
-    console.log(`📁 ${mediaType} saved: ${fileInfo.relativePath} (in ${folder}/ directory)`);
-    res.json(fileInfo);
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed: ' + error.message });
-  }
+    const relativePath = path.join(req.file.destination, req.file.filename).replace(/\\/g, '/');
+    res.json({
+        success: true,
+        message: 'File uploaded successfully',
+        filename: req.file.filename,
+        path: req.file.path,
+        relativePath: relativePath,
+        size: req.file.size
+    });
 });
 
-// Handle multiple file uploads (supports both images and videos)
-app.post('/upload-multiple', upload.array('images', 20), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
+// GET /api/media - Get all media items
+app.get('/api/media', (req, res) => {
+    try {
+        const { q: searchTerm } = req.query;
+        let rows;
 
-    const filesInfo = req.files.map(file => ({
-      filename: file.filename,
-      originalName: file.originalname,
-      size: file.size,
-      relativePath: path.relative(__dirname, file.path),
-      uploadDate: new Date().toISOString(),
-      mediaType: file.mimetype.startsWith('video/') ? 'video' : 'image'
-    }));
-
-    const imageCount = filesInfo.filter(f => f.mediaType === 'image').length;
-    const videoCount = filesInfo.filter(f => f.mediaType === 'video').length;
-    
-    console.log(`📁 ${filesInfo.length} files saved to organized directories:`);
-    if (imageCount > 0) console.log(`  📷 ${imageCount} images → images/ directory`);
-    if (videoCount > 0) console.log(`  🎬 ${videoCount} videos → videos/ directory`);
-    
-    res.json({ success: true, files: filesInfo });
-  } catch (error) {
-    console.error('Multiple upload error:', error);
-    res.status(500).json({ error: 'Upload failed: ' + error.message });
-  }
-});
-
-// DELETE endpoint for removing files from server
-app.delete('/delete/:relativePath(*)', (req, res) => {
-  try {
-    const relativePath = req.params.relativePath;
-    const fullPath = path.join(__dirname, relativePath);
-    
-    // Security check: ensure the path is within our project directory
-    const resolvedPath = path.resolve(fullPath);
-    const projectRoot = path.resolve(__dirname);
-    
-    if (!resolvedPath.startsWith(projectRoot)) {
-      return res.status(400).json({ error: 'Invalid file path' });
-    }
-    
-    // Check if file exists
-    if (!fs.existsSync(resolvedPath)) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
-    // Delete the file
-    fs.unlinkSync(resolvedPath);
-    
-    console.log(`🗑️ Deleted file: ${relativePath}`);
-    res.json({ success: true, message: 'File deleted successfully', path: relativePath });
-    
-  } catch (error) {
-    console.error('Delete error:', error);
-    res.status(500).json({ error: 'Delete failed: ' + error.message });
-  }
-});
-
-// Get list of uploaded media organized by date (searches both images/ and videos/ directories)
-app.get('/api/images', (req, res) => {
-  try {
-    const imagesDir = path.join(__dirname, 'images');
-    const videosDir = path.join(__dirname, 'videos');
-    
-    const mediaByDate = {};
-    let totalImages = 0;
-    let totalVideos = 0;
-    const allDates = new Set();
-
-    // Helper function to process a directory (images or videos)
-    function processDirectory(baseDir, mediaType) {
-      if (!fs.existsSync(baseDir)) {
-        return;
-      }
-
-      const dateDirectories = fs.readdirSync(baseDir)
-        .filter(item => fs.statSync(path.join(baseDir, item)).isDirectory())
-        .sort();
-
-      dateDirectories.forEach(dateDir => {
-        allDates.add(dateDir);
-        
-        if (!mediaByDate[dateDir]) {
-          mediaByDate[dateDir] = [];
+        if (searchTerm) {
+            const term = `%${searchTerm.toLowerCase()}%`;
+            const stmt = db.prepare(`
+                SELECT * FROM media 
+                WHERE LOWER(title) LIKE @term 
+                   OR LOWER(prompt) LIKE @term 
+                   OR LOWER(tags) LIKE @term 
+                ORDER BY created_at DESC
+            `);
+            rows = stmt.all({ term });
+        } else {
+            const stmt = db.prepare('SELECT * FROM media ORDER BY created_at DESC');
+            rows = stmt.all();
         }
 
-        const datePath = path.join(baseDir, dateDir);
-        const fileExtensions = mediaType === 'image' 
-          ? /\.(jpg|jpeg|png|gif|webp)$/i 
-          : /\.(mp4|mov|avi|mkv)$/i;
+        const media = rows.map(row => {
+            const newRow = {};
+            for (const key in row) newRow[toCamelCase(key)] = row[key];
+            return newRow;
+        });
 
-        const files = fs.readdirSync(datePath)
-          .filter(file => fileExtensions.test(file))
-          .map(file => {
-            const stats = fs.statSync(path.join(datePath, file));
-            const folderName = mediaType === 'image' ? 'images' : 'videos';
-            
-            if (mediaType === 'image') {
-              totalImages++;
-            } else {
-              totalVideos++;
-            }
-            
-            return {
-              filename: file,
-              path: `/${folderName}/${dateDir}/${file}`,
-              size: stats.size,
-              modified: stats.mtime,
-              mediaType: mediaType
-            };
-          });
+        res.json(media);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch media.' });
+    }
+});
+
+// POST /api/media - Add new media metadata
+app.post('/api/media', (req, res) => {
+    try {
+        const { title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition, metadata, serverPath, fileSize } = req.body;
+        const stmt = db.prepare(`
+            INSERT INTO media (title, prompt, model, tags, notes, date_added, media_type, thumbnail_data, thumbnail_position_x, thumbnail_position_y, metadata_json, server_path, file_size)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        const info = stmt.run(title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition.x, thumbnailPosition.y, JSON.stringify(metadata), serverPath, fileSize);
         
-        mediaByDate[dateDir].push(...files);
-      });
+        const newMedia = db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid);
+        res.status(201).json(newMedia);
+    } catch (error) {
+        console.error('DB Insert Error:', error);
+        res.status(500).json({ error: 'Failed to save media metadata.' });
     }
-
-    // Process both images and videos directories
-    processDirectory(imagesDir, 'image');
-    processDirectory(videosDir, 'video');
-
-    // Sort dates in reverse order (most recent first)
-    const sortedDates = Array.from(allDates).sort().reverse();
-
-    // Remove empty date entries and sort files within each date
-    sortedDates.forEach(date => {
-      if (mediaByDate[date] && mediaByDate[date].length === 0) {
-        delete mediaByDate[date];
-      } else if (mediaByDate[date]) {
-        // Sort files within each date by modification time (newest first)
-        mediaByDate[date].sort((a, b) => new Date(b.modified) - new Date(a.modified));
-      }
-    });
-
-    res.json({
-      success: true,
-      dates: Object.keys(mediaByDate),
-      mediaByDate: mediaByDate,
-      totalImages: totalImages,
-      totalVideos: totalVideos,
-      totalFiles: totalImages + totalVideos
-    });
-  } catch (error) {
-    console.error('Error listing media:', error);
-    res.status(500).json({ error: 'Failed to list media files' });
-  }
 });
 
-// Serve uploaded images statically
-app.use('/images', express.static(path.join(__dirname, 'images')));
+// PUT /api/media/:id - Update media item
+app.put('/api/media/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const fields = req.body;
+        
+        const setClauses = [];
+        const values = [];
 
-// Serve uploaded videos statically
-app.use('/videos', express.static(path.join(__dirname, 'videos')));
+        for (const [key, value] of Object.entries(fields)) {
+            if (key === 'id') continue;
+            if (key === 'thumbnailPosition') {
+                setClauses.push('thumbnail_position_x = ?', 'thumbnail_position_y = ?');
+                values.push(value.x, value.y);
+            } else {
+                // Convert camelCase to snake_case for DB columns
+                const dbKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+                setClauses.push(`${dbKey} = ?`);
+                values.push(typeof value === 'object' ? JSON.stringify(value) : value);
+            }
+        }
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large (max 100MB)' });
+        if (setClauses.length === 0) {
+            return res.status(400).json({ error: 'No fields to update.' });
+        }
+
+        values.push(id);
+        const stmt = db.prepare(`UPDATE media SET ${setClauses.join(', ')} WHERE id = ?`);
+        stmt.run(values);
+
+        const updatedMedia = db.prepare('SELECT * FROM media WHERE id = ?').get(id);
+        res.json(updatedMedia);
+    } catch (error) {
+        console.error('DB Update Error:', error);
+        res.status(500).json({ error: 'Failed to update media.' });
     }
-  }
-  res.status(500).json({ error: error.message });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 AI Media Gallery server running on port ${PORT}`);
-  console.log(`📁 Media organization:`);
-  console.log(`  📷 Images: ./images/YYYY-MM-DD/`);
-  console.log(`  🎬 Videos: ./videos/YYYY-MM-DD/`);
-  console.log(`🌐 Open http://localhost:${PORT} in your browser`);
-  console.log(`📷 Supports: Images (PNG, JPG, GIF, WebP)`);
-  console.log(`🎬 Supports: Videos (MP4, MOV, AVI, MKV)`);
-  
-  // Create both media directories if they don't exist
-  const imagesDir = path.join(__dirname, 'images');
-  const videosDir = path.join(__dirname, 'videos');
-  
-  if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
-    console.log(`📁 Created images directory: ${imagesDir}`);
-  }
-  
-  if (!fs.existsSync(videosDir)) {
-    fs.mkdirSync(videosDir, { recursive: true });
-    console.log(`📁 Created videos directory: ${videosDir}`);
-  }
+// DELETE /api/media/:id - Delete media item
+app.delete('/api/media/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const media = db.prepare('SELECT server_path FROM media WHERE id = ?').get(id);
+
+        if (media && media.server_path) {
+            // Delete the physical file
+            fs.unlink(media.server_path, (err) => {
+                if (err) console.error(`Failed to delete file: ${media.server_path}`, err);
+                else console.log(`Deleted file: ${media.server_path}`);
+            });
+        }
+
+        const stmt = db.prepare('DELETE FROM media WHERE id = ?');
+        const info = stmt.run(id);
+
+        if (info.changes > 0) {
+            res.status(200).json({ success: true, message: 'Media deleted.' });
+        } else {
+            res.status(404).json({ error: 'Media not found.' });
+        }
+    } catch (error) {
+        console.error('DB Delete Error:', error);
+        res.status(500).json({ error: 'Failed to delete media.' });
+    }
+});
+
+// GET /api/stats - Get gallery statistics
+app.get('/api/stats', (req, res) => {
+    try {
+        const stmt = db.prepare(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN media_type = 'image' THEN 1 ELSE 0 END) as images,
+                SUM(CASE WHEN media_type = 'video' THEN 1 ELSE 0 END) as videos,
+                SUM(file_size) as total_size
+            FROM media
+        `);
+        const stats = stmt.get();
+        res.json({
+            total: stats.total || 0,
+            images: stats.images || 0,
+            videos: stats.videos || 0,
+            totalSizeMB: Math.round((stats.total_size || 0) / (1024 * 1024))
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get stats.' });
+    }
+});
+
+// GET /api/export - Export all data as JSON
+app.get('/api/export', (req, res) => {
+    try {
+        const allData = db.prepare('SELECT * FROM media').all();
+        const exportData = {
+            version: '4.0-server',
+            exportDate: new Date().toISOString(),
+            media: allData
+        };
+        res.json(exportData);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to export data.' });
+    }
+});
+
+// --- Serve the main HTML file ---
+app.get('/', (req, res) => {
+    res.sendFile(path.resolve('index.html'));
+});
+
+// --- Start Server ---
+app.listen(port, () => {
+    setupDatabase();
+    console.log(`🚀 Server running at http://localhost:${port}`);
 });

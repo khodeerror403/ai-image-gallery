@@ -33,11 +33,19 @@ export function displayImages(items) {
         const date = new Date(item.dateAdded).toLocaleDateString();
         const isVideo = item.mediaType === 'video';
         
-        // Get file size from base64 data
-        const fileSize = calculateFileSize(item.imageData);
+        // Get file size from item
+        const fileSize = {
+            display: item.fileSize ? 
+                (item.fileSize > 1024 * 1024 ? 
+                    `${(item.fileSize / (1024 * 1024)).toFixed(1)} MB` : 
+                    `${(item.fileSize / 1024).toFixed(1)} KB`) : 
+                'Unknown'
+        };
         
-        // Use thumbnail for display (for videos, this is the generated thumbnail)
-        const displayImage = item.thumbnailData || item.imageData;
+        // Use server path for display, with thumbnail for videos
+        const displayImage = item.mediaType === 'video' && item.thumbnailData ? 
+            item.thumbnailData : 
+            (item.serverPath ? `/${item.serverPath}` : '');
         
         console.log(`🎯 Using display image: ${displayImage ? 'Has data' : 'NO DATA'} (length: ${displayImage ? displayImage.length : 0})`);
         

@@ -54,43 +54,31 @@ export async function processFile(file, database) {
         const serverUploadResult = await uploadFileToServer(file);
         console.log('✅ Server upload successful:', serverUploadResult);
         
-        // STEP 2: Store in IndexedDB (for metadata and local access)
-        const reader = new FileReader();
-        return new Promise((resolve, reject) => {
-            reader.onload = async (e) => {
-                try {
-                    const mediaData = e.target.result;
-                    
-                    const newMedia = {
-                        title: aiInfo.title || file.name.replace(/\.[^/.]+$/, ''),
-                        prompt: aiInfo.prompt || '',
-                        model: aiInfo.model || '',
-                        tags: aiInfo.tags || '',
-                        notes: aiInfo.notes || '',
-                        dateAdded: new Date().toISOString(),
-                        imageData: mediaData, // Keep same field name for compatibility
-                        metadata: metadata,
-                        serverPath: serverUploadResult.relativePath || null,
-                        mediaType: isVideo ? 'video' : 'image',
-                        thumbnailData: thumbnailData || mediaData, // For videos, store thumbnail separately
-                        thumbnailPosition: { x: 50, y: 25 } // TOP-ALIGNED: 25% from top instead of 50% center
-                    };
+        // STEP 2: Store metadata in server database (no base64 data)
+        const fileSize = file.size;
+        
+        const newMedia = {
+            title: aiInfo.title || file.name.replace(/\.[^/.]+$/, ''),
+            prompt: aiInfo.prompt || '',
+            model: aiInfo.model || '',
+            tags: aiInfo.tags || '',
+            notes: aiInfo.notes || '',
+            dateAdded: new Date().toISOString(),
+            metadata: metadata,
+            serverPath: serverUploadResult.relativePath || null,
+            mediaType: isVideo ? 'video' : 'image',
+            thumbnailData: thumbnailData, // Only store thumbnail for videos, null for images
+            thumbnailPosition: { x: 50, y: 25 }, // TOP-ALIGNED: 25% from top instead of 50% center
+            fileSize: fileSize
+        };
 
-                    const mediaId = await database.getInstance().images.add(newMedia);
-                    resolve({ 
-                        success: true, 
-                        imageId: mediaId, 
-                        imageData: newMedia,
-                        serverUpload: serverUploadResult 
-                    });
-                } catch (error) {
-                    reject(error);
-                }
-            };
-            
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-        });
+        const mediaId = await database.getInstance().images.add(newMedia);
+        return {
+            success: true, 
+            imageId: mediaId, 
+            imageData: newMedia,
+            serverUpload: serverUploadResult 
+        };
     } catch (serverError) {
         console.error('❌ Server upload failed:', serverError);
         console.error('Error details:', serverError.message);

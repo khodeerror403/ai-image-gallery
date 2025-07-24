@@ -33,7 +33,7 @@ export function openImageModal(item, autoplay = false) {
         videoControls.style.display = 'flex';
         
         // Set video source and attributes
-        modalPreviewVideo.src = item.imageData;
+        modalPreviewVideo.src = item.serverPath ? `/${item.serverPath}` : '';
         modalPreviewVideo.loop = true; // Enable loop by default
         modalPreviewVideo.muted = false; // Unmuted for user interaction
         
@@ -54,7 +54,7 @@ export function openImageModal(item, autoplay = false) {
         modalPreviewVideo.style.display = 'none';
         videoControls.style.display = 'none';
         modalPreviewImg.style.display = 'block';
-        modalPreviewImg.src = item.imageData;
+        modalPreviewImg.src = item.serverPath ? `/${item.serverPath}` : '';
     }
     
     // Set title below media preview
@@ -255,13 +255,13 @@ function setupFullSizeHandlers(item, isVideo) {
         // For videos, clicking opens full-size in overlay
         modalPreviewVideo.onclick = (e) => {
             e.stopPropagation();
-            openFullSizeMedia(item.imageData, 'video');
+            openFullSizeMedia(item.serverPath ? `/${item.serverPath}` : '', 'video');
         };
     } else {
         // For images, clicking opens full-size in overlay
         modalPreviewImg.onclick = (e) => {
             e.stopPropagation();
-            openFullSizeMedia(item.imageData, 'image');
+            openFullSizeMedia(item.serverPath ? `/${item.serverPath}` : '', 'image');
         };
     }
 }

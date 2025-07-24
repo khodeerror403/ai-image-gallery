@@ -14,11 +14,24 @@ body {
     background: #2c3e50;
     color: white;
     padding: 20px;
-    text-align: center;
+    text-align: center; /* Keep this for the paragraph */
 }
 
 .header h1 {
+    margin: 0; /* Remove default margin */
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
     margin-bottom: 10px;
+}
+
+.header-logo {
+    height: 40px;
+    width: 40px;
 }
 
 .search-container {
