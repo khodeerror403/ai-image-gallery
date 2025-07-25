@@ -12,7 +12,7 @@ import { showNotification } from './utils.js';
  * @param {number} quality - JPEG quality (0-1)
  * @returns {Promise<string>} - Thumbnail as data URL
  */
-export async function generateThumbnail(imageDataUrl, targetWidth = 300, targetHeight = 200, quality = 0.95) {
+export async function generateThumbnail(imageDataUrl, targetWidth = 800, targetHeight = 600, quality = 0.98) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         
@@ -72,7 +72,7 @@ export async function generateThumbnail(imageDataUrl, targetWidth = 300, targetH
  * @param {number} quality - JPEG quality (0-1)
  * @returns {Promise<string>} - Thumbnail as data URL
  */
-export async function generateThumbnailWithPosition(imageDataUrl, position, targetWidth = 300, targetHeight = 200, quality = 0.95) {
+export async function generateThumbnailWithPosition(imageDataUrl, position, targetWidth = 800, targetHeight = 600, quality = 0.98) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         
@@ -176,9 +176,9 @@ export async function generateThumbnailsForExistingImages(forceRegenerate = fals
                 const thumbnailData = await generateThumbnailWithPosition(
                     imageUrl, 
                     position, 
-                    300, 
-                    200, 
-                    0.95
+                    800, 
+                    600, 
+                    0.98
                 );
                 
                 await database.updateMedia(item.id, {
@@ -259,9 +259,9 @@ export async function regenerateThumbnailForItem(itemId, newPosition) {
         const thumbnailData = await generateThumbnailWithPosition(
             imageUrl,
             newPosition,
-            300,
-            200,
-            0.95
+            800,
+            600,
+            0.98
         );
         
         await database.updateMedia(itemId, {

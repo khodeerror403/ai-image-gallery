@@ -56,7 +56,7 @@ export async function processFile(file, database) {
             
             // Import the generateThumbnail function
             const { generateThumbnail } = await import('./thumbnailGenerator.js');
-            thumbnailData = await generateThumbnail(imageDataUrl, 300, 200, 0.95);
+            thumbnailData = await generateThumbnail(imageDataUrl, 800, 600, 0.98);
         } catch (error) {
             console.error('Error generating image thumbnail:', error);
             thumbnailData = null;
