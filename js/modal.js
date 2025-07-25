@@ -4,7 +4,6 @@
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
 import { showNotification, downloadBlob, generateSafeFilename } from './utils.js';
-import Plyr from '../node_modules/plyr/dist/plyr.min.js';
 
 let currentImageId = null;
 let currentImageData = null;
