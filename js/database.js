@@ -78,6 +78,10 @@ export const database = {
         return await apiRequest(`/api/media/${id}`);
     },
 
+    async getMediaByGalleryId(galleryId) {
+        return await apiRequest(`/api/media/gallery/${galleryId}`);
+    },
+
     async getAllMediaArray() {
         return await this.loadAllMedia();
     },

@@ -86,7 +86,8 @@ export async function processFile(file, database) {
             mediaType: isVideo ? 'video' : 'image',
             thumbnailData: thumbnailData, // Only store thumbnail for videos, null for images
             thumbnailPosition: { x: 50, y: 25 }, // TOP-ALIGNED: 25% from top instead of 50% center
-            fileSize: fileSize
+            fileSize: fileSize,
+            galleryId: 0 // Default gallery ID
         };
 
         const mediaId = await database.getInstance().images.add(newMedia);
@@ -118,7 +119,8 @@ export async function processFile(file, database) {
                         serverPath: null,
                         mediaType: isVideo ? 'video' : 'image',
                         thumbnailData: thumbnailData || mediaData,
-                        thumbnailPosition: { x: 50, y: 25 } // TOP-ALIGNED: 25% from top instead of 50% center
+                        thumbnailPosition: { x: 50, y: 25 }, // TOP-ALIGNED: 25% from top instead of 50% center
+                        galleryId: 0 // Default gallery ID
                     };
 
                     const mediaId = await database.getInstance().images.add(newMedia);

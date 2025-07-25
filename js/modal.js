@@ -4,6 +4,7 @@
 import { database } from './database.js';
 import { displayOrganizedMetadata } from './metadata.js';
 import { showNotification, downloadBlob, generateSafeFilename } from './utils.js';
+import { loadMiniGallery, switchToImage, removeImageFromView, isCurrentImageInGallery, getCurrentImageData, getCurrentImageId } from './minigallery.js';
 
 let currentImageId = null;
 let currentImageData = null;
@@ -91,6 +92,17 @@ export function openImageModal(item, autoplay = false) {
         videoControls.style.display = 'none';
         modalPreviewImg.style.display = 'block';
         modalPreviewImg.src = item.serverPath ? `${item.serverPath}` : '';
+    }
+    
+    // Load mini-gallery if this item has related images
+    loadMiniGallery(item);
+    
+    // Show "Add to Gallery" button for all images, hide for videos
+    const addToGalleryBtn = document.getElementById('addToGallery');
+    if (!isVideo) {
+        addToGalleryBtn.style.display = 'inline-block';
+    } else {
+        addToGalleryBtn.style.display = 'none';
     }
     
     // Set title below media preview
@@ -197,6 +209,12 @@ function ensureModalStructure() {
                 </div>
                 
                 <div class="modal-media-title" id="modalMediaTitle" style="display: none;">Untitled</div>
+                
+                <!-- Mini-gallery thumbnail strip -->
+                <div class="mini-gallery-strip" id="miniGalleryStrip" style="display: none;">
+                    <h4>Related Images</h4>
+                    <div class="mini-gallery-thumbnails" id="miniGalleryThumbnails"></div>
+                </div>
             </div>
             
             <!-- Right Panel - Scrollable with COMPRESSED metadata -->
@@ -269,6 +287,7 @@ function ensureModalStructure() {
                     <!-- Buttons Section -->
                     <div class="modal-buttons">
                         <button class="btn" id="saveMetadata">Save Changes</button>
+                        <button class="btn btn-secondary" id="addToGallery" style="display: none;">Add to Gallery</button>
                         <button class="btn btn-danger" id="deleteImage">Delete Media</button>
                         <button class="btn btn-workflow" id="downloadWorkflow" style="display: none;">Download ComfyUI Workflow</button>
                     </div>
@@ -553,13 +572,79 @@ function performBatchCleanup(elements, elementType, description) {
 
 // Delete current item (works for both images and videos) - CONSOLIDATED LOGGING
 export async function deleteCurrentImage() {
-    if (!currentImageId) return;
+    // Get the current image data from minigallery (which tracks the active image)
+    const activeImageId = getCurrentImageId();
+    const activeImageData = getCurrentImageData();
     
-    const mediaType = currentImageData.mediaType === 'video' ? 'video' : 'image';
+    if (!activeImageId || !activeImageData) {
+        console.error('No active image found for deletion');
+        return;
+    }
+    
+    const mediaType = activeImageData.mediaType === 'video' ? 'video' : 'image';
+    
+    // Check if this is part of a gallery and if it's the main image
+    const isGalleryItem = activeImageData.galleryId && activeImageData.galleryId > 0;
+    let isMainGalleryImage = false;
+    let galleryImages = [];
+    
+    console.log('🔍 DELETION DEBUG - Starting deletion check for image:', {
+        currentImageId: activeImageId,
+        galleryId: activeImageData.galleryId,
+        isGalleryItem,
+        mediaType: activeImageData.mediaType
+    });
+    
+    if (isGalleryItem) {
+        // Get all images in this gallery
+        galleryImages = await database.getMediaByGalleryId(activeImageData.galleryId);
+        console.log('🔍 DELETION DEBUG - All gallery items:', galleryImages.map(img => ({
+            id: img.id,
+            mediaType: img.mediaType,
+            title: img.title
+        })));
+        
+        // Filter to only images (no videos)
+        const galleryImageItems = galleryImages.filter(img => img.mediaType === 'image');
+        console.log('🔍 DELETION DEBUG - Gallery image items only:', galleryImageItems.map(img => ({
+            id: img.id,
+            title: img.title
+        })));
+        
+        // The main image is the one with the LOWEST ID (first one added to the gallery)
+        if (galleryImageItems.length > 0) {
+            const mainImage = galleryImageItems.reduce((min, img) => img.id < min.id ? img : min, galleryImageItems[0]);
+            isMainGalleryImage = activeImageId === mainImage.id;
+            
+            console.log('🔍 DELETION DEBUG - Main image analysis:', {
+                mainImageId: mainImage.id,
+                mainImageTitle: mainImage.title,
+                currentImageId: activeImageId,
+                isMainGalleryImage,
+                galleryImageCount: galleryImageItems.length
+            });
+        }
+        
+        // If this is the main gallery image and there are other images in the gallery, prevent deletion
+        if (isMainGalleryImage && galleryImageItems.length > 1) {
+            console.log('🚫 DELETION DEBUG - Blocking deletion of main gallery image');
+            alert(`This is the main image for this gallery and cannot be deleted while other images are in the gallery. ` +
+                  `To delete this image, first remove all other images from the gallery.`);
+            return;
+        } else {
+            console.log('✅ DELETION DEBUG - Allowing deletion:', {
+                isMainGalleryImage,
+                galleryImageCount: galleryImageItems.length,
+                reason: isMainGalleryImage ? 'Main image but only one in gallery' : 'Not main image'
+            });
+        }
+    } else {
+        console.log('✅ DELETION DEBUG - Not a gallery item, allowing deletion');
+    }
     
     if (confirm(`Are you sure you want to delete this ${mediaType}?`)) {
         try {
-            console.log(`🗑️ Starting deletion process for item ${currentImageId} (${mediaType})`);
+            console.log(`🗑️ Starting deletion process for item ${activeImageId} (${mediaType})`);
             
             // STEP 1: Clean up modal media elements (individual logging for important elements)
             const modalResults = { success: 0, failed: 0, skipped: 0 };
@@ -605,9 +690,9 @@ export async function deleteCurrentImage() {
             }
             
             // STEP 3: Delete from server if serverPath exists
-            if (currentImageData.serverPath) {
+            if (activeImageData.serverPath) {
                 try {
-                    const response = await fetch(`/delete/${encodeURIComponent(currentImageData.serverPath)}`, {
+                    const response = await fetch(`/delete/${encodeURIComponent(activeImageData.serverPath)}`, {
                         method: 'DELETE'
                     });
                     
@@ -623,38 +708,64 @@ export async function deleteCurrentImage() {
             }
             
             // STEP 4: Delete from database
-            console.log(`🗄️ Attempting to delete item ${currentImageId} from database...`);
-            const deleteResult = await database.deleteMedia(currentImageId);
+            console.log(`🗄️ Attempting to delete item ${activeImageId} from database...`);
+            const deleteResult = await database.deleteMedia(activeImageId);
             console.log(`✅ Database deletion completed`);
             
-            // STEP 5: Close modal
-            closeModal();
-            
-            // STEP 6: Targeted gallery cleanup with batch processing
-            const gallery = document.getElementById('gallery');
-            if (gallery) {
-                // Count and clean videos
-                const galleryVideos = gallery.querySelectorAll('video');
-                const galleryBlobImages = gallery.querySelectorAll('img[src^="blob:"]');
+            // STEP 5: Handle gallery vs standalone image deletion
+            if (isCurrentImageInGallery()) {
+                // This is a gallery image, update the mini-gallery view instead of closing modal
+                console.log('🖼️ Removing image from mini-gallery view');
+                removeImageFromView(activeImageId);
                 
-                let totalCleaned = 0;
+                // Switch to the next image in the gallery if available
+                const relatedImages = await database.getMediaByGalleryId(activeImageData.galleryId);
+                const otherImages = relatedImages.filter(img => img.id !== activeImageId && img.mediaType === 'image');
                 
-                if (galleryVideos.length > 0) {
-                    const videoResults = performBatchCleanup(galleryVideos, 'gallery-video', 'Gallery videos');
-                    totalCleaned += videoResults.success;
+                if (otherImages.length > 0) {
+                    // Switch to the first available image
+                    const nextImage = await database.getMediaById(otherImages[0].id);
+                    if (nextImage) {
+                        const updatedItem = switchToImage(nextImage);
+                        currentImageData = updatedItem;
+                        // Reload mini-gallery with the new current image
+                        await loadMiniGallery(updatedItem);
+                    }
+                } else {
+                    // No more images in gallery, close modal
+                    closeModal();
                 }
+            } else {
+                // This is a standalone image, close modal and refresh main gallery
+                // STEP 6: Close modal
+                closeModal();
                 
-                if (galleryBlobImages.length > 0) {
-                    const imageResults = performBatchCleanup(galleryBlobImages, 'gallery-blob-image', 'Gallery blob images');
-                    totalCleaned += imageResults.success;
+                // STEP 7: Targeted gallery cleanup with batch processing
+                const gallery = document.getElementById('gallery');
+                if (gallery) {
+                    // Count and clean videos
+                    const galleryVideos = gallery.querySelectorAll('video');
+                    const galleryBlobImages = gallery.querySelectorAll('img[src^="blob:"]');
+                    
+                    let totalCleaned = 0;
+                    
+                    if (galleryVideos.length > 0) {
+                        const videoResults = performBatchCleanup(galleryVideos, 'gallery-video', 'Gallery videos');
+                        totalCleaned += videoResults.success;
+                    }
+                    
+                    if (galleryBlobImages.length > 0) {
+                        const imageResults = performBatchCleanup(galleryBlobImages, 'gallery-blob-image', 'Gallery blob images');
+                        totalCleaned += imageResults.success;
+                    }
+                    
+                    // Clear the entire gallery HTML after targeted cleanup
+                    gallery.innerHTML = '';
+                    console.log(`🧹 Gallery cleanup completed: ${totalCleaned} media elements cleaned, DOM cleared`);
                 }
-                
-                // Clear the entire gallery HTML after targeted cleanup
-                gallery.innerHTML = '';
-                console.log(`🧹 Gallery cleanup completed: ${totalCleaned} media elements cleaned, DOM cleared`);
             }
             
-            // STEP 7: Wait for cleanup to complete, then reload
+            // STEP 8: Wait for cleanup to complete, then reload
             setTimeout(() => {
                 console.log('🔄 Triggering media reload after cleanup...');
                 window.dispatchEvent(new CustomEvent('mediaUpdated'));
@@ -810,6 +921,8 @@ export function setupModalEventListeners() {
             closeModal();
         } else if (e.target.id === 'saveMetadata') {
             saveImageMetadata();
+        } else if (e.target.id === 'addToGallery') {
+            addToGallery();
         } else if (e.target.id === 'deleteImage') {
             deleteCurrentImage();
         } else if (e.target.id === 'downloadWorkflow') {
@@ -825,12 +938,392 @@ export function setupModalEventListeners() {
     });
 }
 
-// Get current image data (for other modules)
-export function getCurrentImageData() {
-    return currentImageData;
+// Add current image to gallery
+async function addToGallery() {
+    if (!currentImageId || !currentImageData) return;
+    
+    // Create upload interface for gallery images
+    const uploadedFiles = await uploadGalleryImages();
+    
+    if (uploadedFiles && uploadedFiles.length > 0) {
+        try {
+            // Process uploaded files through the normal upload pipeline
+            const { handleFileSelect } = await import('./mediaProcessor.js');
+            
+            // Create a mock file input element for the media processor
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.multiple = true;
+            fileInput.files = createFileList(uploadedFiles);
+            
+            // Process the files
+            handleFileSelect(fileInput, database, async (results) => {
+                if (results && results.length > 0) {
+                    // Get the gallery ID (use existing or create new)
+                    const galleryId = currentImageData.galleryId || Date.now();
+                    
+                    // Update current image with gallery ID if it doesn't have one
+                    if (!currentImageData.galleryId || currentImageData.galleryId === 0) {
+                        await database.updateMedia(currentImageId, { galleryId: galleryId });
+                    }
+                    
+                    // Update all newly uploaded images with the same gallery ID
+                    const successfulUploads = results.filter(result => result.success);
+                    for (const result of successfulUploads) {
+                        if (result.imageId) {
+                            await database.updateMedia(result.imageId, { galleryId: galleryId });
+                        }
+                    }
+                    
+                    showNotification(`Added ${successfulUploads.length} images to gallery`, 'success');
+                    
+                    // Reload the modal to show the mini-gallery
+                    const updatedItem = await database.getMediaById(currentImageId);
+                    currentImageData = updatedItem;
+                    loadMiniGallery(updatedItem);
+                    
+                    // Trigger reload in main app
+                    window.dispatchEvent(new CustomEvent('mediaUpdated'));
+                } else {
+                    showNotification('No images were successfully uploaded', 'error');
+                }
+            });
+        } catch (error) {
+            console.error('Error processing gallery images:', error);
+            showNotification('Error processing gallery images: ' + error.message, 'error');
+        }
+    }
 }
 
-// Get current image ID (for other modules)
-export function getCurrentImageId() {
-    return currentImageId;
+// Create a FileList from an array of File objects
+function createFileList(files) {
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+    return dataTransfer.files;
 }
+
+// Upload interface for gallery images
+function uploadGalleryImages() {
+    return new Promise((resolve) => {
+        // Create upload modal
+        const uploadModal = document.createElement('div');
+        uploadModal.className = 'modal gallery-upload-modal';
+        uploadModal.style.display = 'block';
+        uploadModal.style.zIndex = '2001';
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content gallery-upload-content';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'gallery-upload-header';
+        header.innerHTML = `
+            <span class="close" id="closeUploadModal">&times;</span>
+            <h3>Add Images to Gallery</h3>
+            <p>Upload images to add to this gallery</p>
+        `;
+        
+        // Create upload area
+        const uploadArea = document.createElement('div');
+        uploadArea.className = 'upload-area gallery-upload-area';
+        uploadArea.innerHTML = `
+            <div class="upload-area-content">
+                <p>Drag & drop images here or click to select files</p>
+                <input type="file" id="galleryFileInput" multiple accept="image/*" style="display: none;">
+            </div>
+        `;
+        
+        // Add drag and drop functionality
+        const fileInput = uploadArea.querySelector('#galleryFileInput');
+        let uploadedFiles = [];
+        
+        // Click to select files
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Handle file selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadedFiles = Array.from(e.target.files);
+                updateFilePreview();
+            }
+        });
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                // Filter to only image files
+                uploadedFiles = Array.from(e.dataTransfer.files).filter(file => 
+                    file.type.startsWith('image/')
+                );
+                updateFilePreview();
+            }
+        });
+        
+        // Create file preview area
+        const previewArea = document.createElement('div');
+        previewArea.id = 'galleryFilePreview';
+        previewArea.className = 'gallery-file-preview';
+        
+        // Update file preview
+        function updateFilePreview() {
+            previewArea.innerHTML = '';
+            previewArea.style.display = uploadedFiles.length > 0 ? 'block' : 'none';
+            
+            if (uploadedFiles.length > 0) {
+                const previewTitle = document.createElement('h4');
+                previewTitle.textContent = `Selected Files (${uploadedFiles.length})`;
+                previewTitle.className = 'preview-title';
+                previewArea.appendChild(previewTitle);
+                
+                const fileList = document.createElement('div');
+                fileList.className = 'file-list';
+                
+                uploadedFiles.forEach((file, index) => {
+                    const fileContainer = document.createElement('div');
+                    fileContainer.className = 'file-container';
+                    
+                    const fileElement = document.createElement('img');
+                    fileElement.className = 'file-preview';
+                    
+                    // Create object URL for preview
+                    const objectUrl = URL.createObjectURL(file);
+                    fileElement.src = objectUrl;
+                    
+                    const fileName = document.createElement('div');
+                    fileName.textContent = file.name;
+                    fileName.className = 'file-name';
+                    
+                    const fileInfo = document.createElement('div');
+                    fileInfo.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+                    fileInfo.className = 'file-info';
+                    
+                    fileContainer.appendChild(fileElement);
+                    fileContainer.appendChild(fileName);
+                    fileContainer.appendChild(fileInfo);
+                    fileList.appendChild(fileContainer);
+                });
+                
+                previewArea.appendChild(fileList);
+            }
+        }
+        
+        // Create buttons
+        const buttons = document.createElement('div');
+        buttons.className = 'gallery-upload-buttons';
+        
+        const uploadBtn = document.createElement('button');
+        uploadBtn.className = 'btn btn-primary';
+        uploadBtn.textContent = 'Add to Gallery';
+        uploadBtn.addEventListener('click', () => {
+            uploadModal.remove();
+            resolve(uploadedFiles);
+        });
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => {
+            uploadModal.remove();
+            resolve(null);
+        });
+        
+        buttons.appendChild(cancelBtn);
+        buttons.appendChild(uploadBtn);
+        
+        // Close button functionality
+        header.querySelector('#closeUploadModal').addEventListener('click', () => {
+            uploadModal.remove();
+            resolve(null);
+        });
+        
+        // Close on escape key
+        const closeOnEscape = (e) => {
+            if (e.key === 'Escape') {
+                uploadModal.remove();
+                resolve(null);
+                document.removeEventListener('keydown', closeOnEscape);
+            }
+        };
+        document.addEventListener('keydown', closeOnEscape);
+        
+        // Close on click outside
+        uploadModal.addEventListener('click', (e) => {
+            if (e.target === uploadModal) {
+                uploadModal.remove();
+                resolve(null);
+            }
+        });
+        
+        // Assemble modal
+        modalContent.appendChild(header);
+        modalContent.appendChild(uploadArea);
+        modalContent.appendChild(previewArea);
+        modalContent.appendChild(buttons);
+        uploadModal.appendChild(modalContent);
+        document.body.appendChild(uploadModal);
+    });
+}
+
+// Simple image selection interface
+function selectImagesForGallery(images) {
+    return new Promise((resolve) => {
+        // Create selection modal
+        const selectionModal = document.createElement('div');
+        selectionModal.className = 'modal';
+        selectionModal.style.display = 'block';
+        selectionModal.style.zIndex = '2001';
+        
+        // Create modal content
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+        modalContent.style.maxWidth = '800px';
+        modalContent.style.maxHeight = '80vh';
+        modalContent.style.overflowY = 'auto';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.innerHTML = `
+            <span class="close" id="closeSelectionModal">&times;</span>
+            <h3>Select Images for Gallery</h3>
+            <p>Select images to group together in a gallery (current image is automatically included)</p>
+        `;
+        
+        // Create image grid
+        const imageGrid = document.createElement('div');
+        imageGrid.style.display = 'grid';
+        imageGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
+        imageGrid.style.gap = '10px';
+        imageGrid.style.margin = '20px 0';
+        
+        // Add images to grid
+        images.forEach(img => {
+            const imageContainer = document.createElement('div');
+            imageContainer.style.position = 'relative';
+            imageContainer.style.cursor = 'pointer';
+            
+            const imgElement = document.createElement('img');
+            imgElement.src = img.serverPath ? `${img.serverPath}` : '';
+            imgElement.style.width = '100%';
+            imgElement.style.height = '150px';
+            imgElement.style.objectFit = 'cover';
+            imgElement.style.border = '2px solid transparent';
+            imgElement.style.borderRadius = '5px';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.style.position = 'absolute';
+            checkbox.style.top = '5px';
+            checkbox.style.left = '5px';
+            checkbox.checked = img.id === currentImageId; // Auto-select current image
+            checkbox.disabled = img.id === currentImageId; // Can't deselect current image
+            
+            const title = document.createElement('div');
+            title.textContent = img.title || 'Untitled';
+            title.style.fontSize = '12px';
+            title.style.textAlign = 'center';
+            title.style.marginTop = '5px';
+            title.style.overflow = 'hidden';
+            title.style.textOverflow = 'ellipsis';
+            title.style.whiteSpace = 'nowrap';
+            
+            // Toggle selection on image click
+            imageContainer.addEventListener('click', (e) => {
+                if (e.target !== checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    imgElement.style.border = checkbox.checked ? '2px solid #3498db' : '2px solid transparent';
+                }
+            });
+            
+            // Highlight selected images
+            if (checkbox.checked) {
+                imgElement.style.border = '2px solid #3498db';
+            }
+            
+            imageContainer.appendChild(imgElement);
+            imageContainer.appendChild(checkbox);
+            imageContainer.appendChild(title);
+            imageGrid.appendChild(imageContainer);
+        });
+        
+        // Create buttons
+        const buttons = document.createElement('div');
+        buttons.style.display = 'flex';
+        buttons.style.justifyContent = 'center';
+        buttons.style.gap = '10px';
+        buttons.style.marginTop = '20px';
+        
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn';
+        confirmBtn.textContent = 'Create Gallery';
+        confirmBtn.addEventListener('click', () => {
+            const selectedImages = images.filter((img, index) => {
+                const checkbox = imageGrid.querySelectorAll('input[type="checkbox"]')[index];
+                return checkbox.checked;
+            });
+            selectionModal.remove();
+            resolve(selectedImages);
+        });
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-secondary';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', () => {
+            selectionModal.remove();
+            resolve(null);
+        });
+        
+        buttons.appendChild(confirmBtn);
+        buttons.appendChild(cancelBtn);
+        
+        // Close button functionality
+        header.querySelector('#closeSelectionModal').addEventListener('click', () => {
+            selectionModal.remove();
+            resolve(null);
+        });
+        
+        // Close on escape key
+        const closeOnEscape = (e) => {
+            if (e.key === 'Escape') {
+                selectionModal.remove();
+                resolve(null);
+                document.removeEventListener('keydown', closeOnEscape);
+            }
+        };
+        document.addEventListener('keydown', closeOnEscape);
+        
+        // Close on click outside
+        selectionModal.addEventListener('click', (e) => {
+            if (e.target === selectionModal) {
+                selectionModal.remove();
+                resolve(null);
+            }
+        });
+        
+        // Assemble modal
+        modalContent.appendChild(header);
+        modalContent.appendChild(imageGrid);
+        modalContent.appendChild(buttons);
+        selectionModal.appendChild(modalContent);
+        document.body.appendChild(selectionModal);
+    });
+}
+
+// Get current image data (for other modules)
+// These functions have been moved to minigallery.js
+
+// These functions have been moved to minigallery.js

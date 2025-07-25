@@ -8,13 +8,27 @@ let allImages = [];
 // Display images and videos in gallery
 export function displayImages(items) {
     console.log(`🎨 displayImages called with ${items.length} items`);
-    allImages = items; // Store for other modules to access
+    
+    // Show standalone images and main gallery images (first image in each gallery)
+    const standaloneItems = items.filter(item => {
+        // Show standalone images (galleryId = 0 or null)
+        if (!item.galleryId || item.galleryId === 0) {
+            return true;
+        }
+        
+        // For gallery images, only show the main image (lowest ID in the gallery)
+        const galleryImages = items.filter(img => img.galleryId === item.galleryId);
+        const mainImage = galleryImages.reduce((min, img) => img.id < min.id ? img : min, galleryImages[0]);
+        return item.id === mainImage.id;
+    });
+    allImages = standaloneItems; // Store for other modules to access
+    
     const gallery = document.getElementById('gallery');
     const noImages = document.getElementById('noImages');
     
     gallery.innerHTML = '';
     
-    if (items.length === 0) {
+    if (standaloneItems.length === 0) {
         console.log('📭 No items to display');
         noImages.style.display = 'block';
         noImages.querySelector('p').textContent = 'No media yet. Add some images or videos by dragging and dropping them above!';
@@ -23,7 +37,7 @@ export function displayImages(items) {
     
     noImages.style.display = 'none';
     
-    items.forEach((item, index) => {
+    standaloneItems.forEach((item, index) => {
         console.log(`🖼️ Rendering item ${index + 1}: ${item.title || 'Untitled'} (${item.mediaType || 'image'})`);
         
         const card = document.createElement('div');
@@ -112,7 +126,7 @@ export function displayImages(items) {
         }
     });
     
-    console.log(`🏁 Gallery rendering complete: ${items.length} cards displayed`);
+    console.log(`🏁 Gallery rendering complete: ${standaloneItems.length} cards displayed`);
 }
 
 // Play video function (called when play button is clicked)

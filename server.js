@@ -51,7 +51,11 @@ app.use(express.static('.')); // Serve static files from the root directory
 
 // --- Database Schema Setup ---
 function setupDatabase() {
-    const schema = `
+    // Check if gallery_id column exists, add it if not
+    const tableInfo = db.prepare("PRAGMA table_info(media)").all();
+    const hasGalleryId = tableInfo.some(col => col.name === 'gallery_id');
+    
+    let schema = `
         CREATE TABLE IF NOT EXISTS media (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -69,6 +73,15 @@ function setupDatabase() {
             file_size INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+    `;
+    
+    if (!hasGalleryId) {
+        schema += `
+            ALTER TABLE media ADD COLUMN gallery_id INTEGER DEFAULT 0;
+        `;
+    }
+    
+    schema += `
         CREATE INDEX IF NOT EXISTS idx_server_path ON media(server_path);
     `;
     db.exec(schema);
@@ -157,10 +170,24 @@ app.get('/api/media/:id', (req, res) => {
     }
 });
 
+// GET /api/media/gallery/:galleryId - Get media items by gallery ID
+app.get('/api/media/gallery/:galleryId', (req, res) => {
+    try {
+        const { galleryId } = req.params;
+        const stmt = db.prepare('SELECT * FROM media WHERE gallery_id = ? ORDER BY created_at DESC');
+        const rows = stmt.all(galleryId);
+        
+        const media = rows.map(row => transformMediaRow(row));
+        res.json(media);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch media.' });
+    }
+});
+
 // POST /api/media - Add new media metadata
 app.post('/api/media', (req, res) => {
     try {
-        const { title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition, metadata, serverPath, fileSize } = req.body;
+        const { title, prompt, model, tags, notes, dateAdded, mediaType, thumbnailData, thumbnailPosition, metadata, serverPath, fileSize, galleryId } = req.body;
         
         // Handle thumbnailPosition - provide defaults if not present
         const thumbX = thumbnailPosition && typeof thumbnailPosition.x !== 'undefined' ? thumbnailPosition.x : 50;
@@ -169,11 +196,14 @@ app.post('/api/media', (req, res) => {
         // Handle dateAdded - provide default if not present
         const dateAddedValue = dateAdded || new Date().toISOString();
         
+        // Handle galleryId - provide default if not present
+        const galleryIdValue = typeof galleryId !== 'undefined' ? galleryId : 0;
+        
         const stmt = db.prepare(`
-            INSERT INTO media (title, prompt, model, tags, notes, date_added, media_type, thumbnail_data, thumbnail_position_x, thumbnail_position_y, metadata_json, server_path, file_size)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO media (title, prompt, model, tags, notes, date_added, media_type, thumbnail_data, thumbnail_position_x, thumbnail_position_y, metadata_json, server_path, file_size, gallery_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const info = stmt.run(title, prompt, model, tags, notes, dateAddedValue, mediaType, thumbnailData, thumbX, thumbY, JSON.stringify(metadata), serverPath, fileSize);
+        const info = stmt.run(title, prompt, model, tags, notes, dateAddedValue, mediaType, thumbnailData, thumbX, thumbY, JSON.stringify(metadata), serverPath, fileSize, galleryIdValue);
         
         const newMedia = db.prepare('SELECT * FROM media WHERE id = ?').get(info.lastInsertRowid);
         res.status(201).json(newMedia);
