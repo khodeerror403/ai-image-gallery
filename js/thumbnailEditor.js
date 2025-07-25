@@ -25,6 +25,19 @@ export function setupThumbnailPositionPicker() {
                         <div id="cropRectangle" class="crop-rectangle" style="display: none;"></div>
                         <div id="dragCenterPoint" class="drag-center-point" style="display: none;"></div>
                     </div>
+                    
+                    <!-- Position controls for more granular control -->
+                    <div class="position-controls">
+                        <div class="position-control-group">
+                            <label for="positionX">Horizontal Position (%):</label>
+                            <input type="number" id="positionX" min="0" max="100" step="0.1" value="50">
+                        </div>
+                        <div class="position-control-group">
+                            <label for="positionY">Vertical Position (%):</label>
+                            <input type="number" id="positionY" min="0" max="100" step="0.1" value="25">
+                        </div>
+                        <button class="btn btn-secondary" id="updatePositionFromInputs">Update Position</button>
+                    </div>
                 </div>
                 
                 <div class="thumbnail-modal-buttons">
@@ -130,6 +143,37 @@ function setupThumbnailEventListeners() {
     
     // Save position
     saveThumbnailPosition.addEventListener('click', saveThumbnailPositionHandler);
+    
+    // Position input controls
+    const positionX = document.getElementById('positionX');
+    const positionY = document.getElementById('positionY');
+    const updatePositionFromInputs = document.getElementById('updatePositionFromInputs');
+    
+    // Update input fields when position changes
+    function updatePositionInputs() {
+        positionX.value = currentPosition.x;
+        positionY.value = currentPosition.y;
+    }
+    
+    // Update position from input fields
+    updatePositionFromInputs.addEventListener('click', () => {
+        const x = parseFloat(positionX.value);
+        const y = parseFloat(positionY.value);
+        
+        if (!isNaN(x) && !isNaN(y)) {
+            currentPosition.x = Math.max(0, Math.min(100, x));
+            currentPosition.y = Math.max(0, Math.min(100, y));
+            updateCropRectangle();
+            console.log(`Position updated from inputs: ${currentPosition.x}% ${currentPosition.y}%`);
+        }
+    });
+    
+    // Update inputs when crop rectangle moves
+    const originalUpdateCropRectangle = updateCropRectangle;
+    updateCropRectangle = function() {
+        originalUpdateCropRectangle();
+        updatePositionInputs();
+    };
 }
 
 // Update crop rectangle and center point display

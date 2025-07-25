@@ -42,8 +42,8 @@ export function displayImages(items) {
                 'Unknown'
         };
         
-        // Use thumbnail data if available, otherwise fall back to server path
-        const displayImage = item.thumbnailData ? 
+        // For videos, use thumbnail data; for images, use server path for full-size display
+        const displayImage = item.mediaType === 'video' && item.thumbnailData ? 
             item.thumbnailData : 
             (item.serverPath ? `${item.serverPath}` : '');
         

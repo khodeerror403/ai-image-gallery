@@ -919,6 +919,50 @@ body {
     font-size: 14px;
 }
 
+/* Position controls for thumbnail editor */
+.position-controls {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+.position-control-group {
+    margin-bottom: 15px;
+}
+
+.position-control-group:last-child {
+    margin-bottom: 0;
+}
+
+.position-control-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 14px;
+}
+
+.position-control-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.position-control-group input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+}
+
+#updatePositionFromInputs {
+    width: 100%;
+    margin-top: 10px;
+}
+
 .no-images {
     text-align: center;
     color: #666;
