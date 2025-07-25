@@ -12,7 +12,7 @@ import { showNotification } from './utils.js';
  * @param {number} quality - JPEG quality (0-1)
  * @returns {Promise<string>} - Thumbnail as data URL
  */
-export async function generateThumbnail(imageDataUrl, targetWidth = 600, targetHeight = 400, quality = 0.92) {
+export async function generateThumbnail(imageDataUrl, targetWidth = 300, targetHeight = 200, quality = 0.95) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         
@@ -72,7 +72,7 @@ export async function generateThumbnail(imageDataUrl, targetWidth = 600, targetH
  * @param {number} quality - JPEG quality (0-1)
  * @returns {Promise<string>} - Thumbnail as data URL
  */
-export async function generateThumbnailWithPosition(imageDataUrl, position, targetWidth = 600, targetHeight = 400, quality = 0.92) {
+export async function generateThumbnailWithPosition(imageDataUrl, position, targetWidth = 300, targetHeight = 200, quality = 0.95) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         
@@ -176,9 +176,9 @@ export async function generateThumbnailsForExistingImages(forceRegenerate = fals
                 const thumbnailData = await generateThumbnailWithPosition(
                     imageUrl, 
                     position, 
-                    600, 
-                    400, 
-                    0.92
+                    300, 
+                    200, 
+                    0.95
                 );
                 
                 await database.updateMedia(item.id, {
@@ -259,9 +259,9 @@ export async function regenerateThumbnailForItem(itemId, newPosition) {
         const thumbnailData = await generateThumbnailWithPosition(
             imageUrl,
             newPosition,
-            600,
-            400,
-            0.92
+            300,
+            200,
+            0.95
         );
         
         await database.updateMedia(itemId, {
@@ -296,7 +296,8 @@ export function addThumbnailGenerationControls() {
             thumbnailBtn.textContent = 'Generating...';
             
             try {
-                await generateThumbnailsForExistingImages(false, (progress) => {
+                // Force regeneration to ensure all thumbnails are updated with new quality settings
+                await generateThumbnailsForExistingImages(true, (progress) => {
                     thumbnailBtn.textContent = `Generating... (${progress.current}/${progress.total})`;
                 });
                 

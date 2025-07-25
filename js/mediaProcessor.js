@@ -44,6 +44,23 @@ export async function processFile(file, database) {
             aiInfo = extractComfyUIInfo(pngTextChunks);
             metadata = pngTextChunks;
         }
+        
+        // Generate thumbnail for images
+        try {
+            const reader = new FileReader();
+            const imageDataUrl = await new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('Failed to read image'));
+                reader.readAsDataURL(file);
+            });
+            
+            // Import the generateThumbnail function
+            const { generateThumbnail } = await import('./thumbnailGenerator.js');
+            thumbnailData = await generateThumbnail(imageDataUrl, 300, 200, 0.95);
+        } catch (error) {
+            console.error('Error generating image thumbnail:', error);
+            thumbnailData = null;
+        }
     }
     
     console.log('🔍 About to try server upload...');
@@ -139,11 +156,18 @@ async function generateVideoThumbnail(videoFile) {
         
         video.addEventListener('seeked', () => {
             try {
+                // Set canvas to video dimensions for full-resolution thumbnail
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
+                
+                // Enable image smoothing for better quality
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                // Draw the video frame to the canvas
                 ctx.drawImage(video, 0, 0);
                 
-                const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                const thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.95);
                 URL.revokeObjectURL(video.src);
                 resolve(thumbnailDataUrl);
             } catch (error) {

@@ -42,8 +42,8 @@ export function displayImages(items) {
                 'Unknown'
         };
         
-        // Use server path for display, with thumbnail for videos
-        const displayImage = item.mediaType === 'video' && item.thumbnailData ? 
+        // Use thumbnail data if available, otherwise fall back to server path
+        const displayImage = item.thumbnailData ? 
             item.thumbnailData : 
             (item.serverPath ? `${item.serverPath}` : '');
         
